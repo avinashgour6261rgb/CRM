@@ -1502,17 +1502,47 @@ export const DashboardPage = () => {
         const existing = tMap.get(key);
         const preferCurrent = !String(t._id || '').startsWith('tsk_') && String(existing._id || '').startsWith('tsk_');
         const chosen = preferCurrent ? t : existing;
+
+        const mergedDailySessions = {
+          ...((existing.dailySessions && typeof existing.dailySessions === 'object') ? existing.dailySessions : {}),
+          ...((t.dailySessions && typeof t.dailySessions === 'object') ? t.dailySessions : {})
+        };
+        const maxTodaySecs = Math.max(
+          Number(existing.todayWorkSeconds) || 0,
+          Number(t.todayWorkSeconds) || 0,
+          Number(existing.accumulatedTodaySeconds) || 0,
+          Number(t.accumulatedTodaySeconds) || 0,
+          Number(mergedDailySessions[todayStr]) || 0
+        );
+        if (maxTodaySecs > 0) {
+          mergedDailySessions[todayStr] = maxTodaySecs;
+        }
+
+        const mergedAssigneeTimers = {
+          ...((existing.assigneeTimers && typeof existing.assigneeTimers === 'object') ? existing.assigneeTimers : {}),
+          ...((t.assigneeTimers && typeof t.assigneeTimers === 'object') ? t.assigneeTimers : {})
+        };
+        const mergedAssigneeSessions = {
+          ...((existing.assigneeSessions && typeof existing.assigneeSessions === 'object') ? existing.assigneeSessions : {}),
+          ...((t.assigneeSessions && typeof t.assigneeSessions === 'object') ? t.assigneeSessions : {})
+        };
+
         tMap.set(key, {
           ...chosen,
           timerRunning: existing.timerRunning || t.timerRunning,
           startedAt: existing.timerRunning ? existing.startedAt : t.startedAt,
           timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
-          accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0)
+          accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0),
+          todayWorkSeconds: maxTodaySecs,
+          accumulatedTodaySeconds: maxTodaySecs,
+          dailySessions: mergedDailySessions,
+          assigneeTimers: mergedAssigneeTimers,
+          assigneeSessions: mergedAssigneeSessions
         });
       }
     });
     return Array.from(tMap.values());
-  }, [tasks]);
+  }, [tasks, todayStr]);
 
   // Direct tasks for currently logged-in user
   const myDirectTasks = React.useMemo(() => {
@@ -3216,8 +3246,8 @@ export const DashboardPage = () => {
             openDayLogModalForUser={openDayLogModalForUser}
             holidays={holidays}
             timesheets={timesheets}
-            tasks={tasks}
-            activeRunningTask={activeRunningTask}
+            tasks={cleanTasks}
+            activeRunningTask={displayActiveTask || activeRunningTask}
             formatSeconds={formatSeconds}
             isClockedIn={displayedIsClockedIn}
           />

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Clock, Eye } from 'lucide-react';
 import { getCollection, saveCollection, KEYS } from '../../../../shared/services/storageService';
-import { getUserDailyTaskBreakdown, readTimerStorage } from '../../../../shared/utils/timerUtils';
+import { getUserDailyTaskBreakdown, readTimerStorage, isTaskAssignedToUser } from '../../../../shared/utils/timerUtils';
 
 export const WeeklyTimeLogsCard = ({
     effectiveTargetUser,
@@ -72,16 +72,17 @@ export const WeeklyTimeLogsCard = ({
     // Helper: check if task is assigned to effective user
     const isMyTask = (t) => {
         if (!effectiveUser || !t) return false;
+        if (typeof isTaskAssignedToUser === 'function' && isTaskAssignedToUser(t, effectiveUser)) return true;
         const tAssignedId = t.assignedToId || (typeof t.assignedTo === 'string' ? t.assignedTo : t.assignedTo?._id);
         const tAssignedCode = t.assignedToCode || '';
         const tAssignedName = t.assignedToName || (typeof t.assignedTo === 'object' ? t.assignedTo?.name : null);
 
         if (uId && String(tAssignedId).toLowerCase() === uId) return true;
         if (uCode && String(tAssignedCode).toLowerCase() === uCode) return true;
-        if (uName && tAssignedName && tAssignedName.toLowerCase().trim() === uName) return true;
+        if (uName && tAssignedName && (tAssignedName.toLowerCase().trim() === uName || tAssignedName.toLowerCase().includes(uName) || uName.includes(tAssignedName.toLowerCase().trim()))) return true;
 
         if (Array.isArray(t.assignedToIds) && uId && t.assignedToIds.some(id => String(id).toLowerCase() === uId)) return true;
-        if (Array.isArray(t.assignees) && t.assignees.some(a => (uId && String(a._id).toLowerCase() === uId) || (uCode && String(a.employeeCode).toLowerCase() === uCode) || (uName && a.name && a.name.toLowerCase().trim() === uName))) return true;
+        if (Array.isArray(t.assignees) && t.assignees.some(a => (uId && String(a._id).toLowerCase() === uId) || (uCode && String(a.employeeCode).toLowerCase() === uCode) || (uName && a.name && (a.name.toLowerCase().trim() === uName || a.name.toLowerCase().includes(uName) || uName.includes(a.name.toLowerCase().trim()))))) return true;
         return false;
     };
 

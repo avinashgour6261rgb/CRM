@@ -283,12 +283,13 @@ export const workService = {
             localList.forEach(lt => {
               const id = String(lt._id || lt.id);
               if (id) localMap.set(id, lt);
+              if (lt.taskCode) localMap.set(`code_${String(lt.taskCode).trim().toLowerCase()}`, lt);
             });
 
             // Map authoritative remote tasks, overlaying live ticking timer only if running locally
             const merged = remoteList.map(rt => {
               const id = String(rt._id || rt.id);
-              const local = localMap.get(id);
+              const local = localMap.get(id) || (rt.taskCode ? localMap.get(`code_${String(rt.taskCode).trim().toLowerCase()}`) : null);
               if (local) {
                 const localTimerSecs = Number(local.timerSeconds) || 0;
                 const remoteTimerSecs = Number(rt.timerSeconds) || 0;

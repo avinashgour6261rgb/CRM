@@ -314,7 +314,10 @@ export const WorkProvider = ({ children }) => {
       const localMap = new Map();
       localTasks.forEach(lt => {
         const id = String(lt._id || lt.id);
-        if (id && !isLegacyTask(lt)) localMap.set(id, lt);
+        if (id && !isLegacyTask(lt)) {
+          localMap.set(id, lt);
+          if (lt.taskCode) localMap.set(`code_${String(lt.taskCode).trim().toLowerCase()}`, lt);
+        }
       });
 
       const todayStr = getTodayStr();
@@ -323,7 +326,7 @@ export const WorkProvider = ({ children }) => {
       (rawTsks || []).forEach(bt => {
         const id = String(bt._id || bt.id);
         if (id && !isLegacyTask(bt)) {
-          const existing = localMap.get(id);
+          const existing = localMap.get(id) || (bt.taskCode ? localMap.get(`code_${String(bt.taskCode).trim().toLowerCase()}`) : null);
           if (existing) {
             const localSecs = Number(existing.timerSeconds) || 0;
             const backendSecs = Number(bt.timerSeconds) || 0;
@@ -2692,7 +2695,8 @@ export const WorkProvider = ({ children }) => {
 
     const prevTaskCandidate = runningPrevTask ||
       (activeTimer && activeTimer.timerRunning && String(activeTimer.taskId) !== String(taskId) && !isForOtherEmployee
-        ? (tasks.find(t => String(t._id || t.id) === String(activeTimer.taskId)) || allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId)))
+        ? (tasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode && t.taskCode === activeTimer.taskCode)) ||
+           allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode && t.taskCode === activeTimer.taskCode)))
         : null);
 
     if (prevTaskCandidate) {
@@ -2927,7 +2931,13 @@ export const WorkProvider = ({ children }) => {
           status: t.status === 'incomplete' ? 'in_progress' : t.status
         };
       }
-      if (previousTaskId && tId === String(previousTaskId)) {
+      const isPrev = Boolean(
+        previousTaskId && (
+          tId === String(previousTaskId) ||
+          (prevTaskCandidate?.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(prevTaskCandidate.taskCode).trim().toLowerCase())
+        )
+      );
+      if (isPrev) {
         const pausedPrev = syncTaskPauseState(t, {
           nowMs: now,
           todayStr: today,
@@ -3088,19 +3098,24 @@ export const WorkProvider = ({ children }) => {
 
         // AUTO-SAVE TIMESHEET ENTRY: Ensure worked time is immediately logged to KEYS.TIMESHEETS!
         if (prevToday > 0 && prevTaskCandidate) {
+          const prevWorkerObj = targetWorkerObj || currentUser;
+          const prevEmpId = prevWorkerObj?._id || prevWorkerObj?.employeeCode || userKey;
+          const prevEmpName = prevWorkerObj?.name || currentUser?.name || 'Employee';
+          const prevEmpCode = prevWorkerObj?.employeeCode || (!/^[a-fA-F0-9]{24}$/.test(String(prevEmpId)) ? String(prevEmpId) : '');
           workService.createTimesheet({
             taskId: prevTaskCandidate._id || previousTaskId,
             taskCode: prevTaskCandidate.taskCode || 'TSK',
             taskTitle: prevTaskCandidate.title || 'Task',
             projectName: prevTaskCandidate.projectName || 'General Work',
-            employeeId: assignedEmpId || userKey,
-            employeeName: assignedEmpName || currentUser?.name || 'Employee',
+            employeeId: prevEmpId,
+            employeeCode: prevEmpCode,
+            employeeName: prevEmpName,
             date: today,
             totalDurationSeconds: prevToday,
             totalDurationText: formatSeconds(prevToday),
             memo: 'Auto-saved session on switching tasks',
             status: 'stopped'
-          }).catch(() => {});
+          }).catch(err => console.warn('Auto timesheet save on switch error:', err));
         }
       }
 
@@ -3201,7 +3216,13 @@ export const WorkProvider = ({ children }) => {
           status: t.status === 'incomplete' ? 'in_progress' : t.status
         };
       }
-      if (previousTaskId && tId === String(previousTaskId)) {
+      const isPrev = Boolean(
+        previousTaskId && (
+          tId === String(previousTaskId) ||
+          (prevTaskCandidate?.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(prevTaskCandidate.taskCode).trim().toLowerCase())
+        )
+      );
+      if (isPrev) {
         const safeAccum = Math.max(finalPrevAccum, Number(t.accumulatedSeconds ?? t.timerSeconds ?? 0));
         const safeToday = Math.max(finalPrevToday, Number(t.dailySessions?.[today] ?? t.todayWorkSeconds ?? 0));
         return {
