@@ -17,7 +17,7 @@ import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isSocketConnected } from '../../../shared/services/socketService';
 import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
-import { readTimerStorage, getTimerMirrorKeys, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser, isTaskRunningForUser, getWorkerTaskTimer } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, getTimerMirrorKeys, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser, isTaskRunningForUser, getWorkerTaskTimer, getWorkerDailySessionSeconds } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -998,11 +998,34 @@ export const WorkProvider = ({ children }) => {
         setTasks(prev => prev.map(t => {
           const tId = String(t._id || t.id);
           if (tId === targetId) {
+            const isMulti = (Array.isArray(t.assignedToIds) && t.assignedToIds.length > 1) ||
+              (Array.isArray(t.assignees) && t.assignees.length > 1);
+            const alreadyRunningForMe = !isMyEmp && isMulti && isTaskRunningForUser(t, currentUser);
+            const syncWorkerKey = String(ev.payload.activeWorkerId || ev.payload.empKey || '');
+            const nextAssigneeTimers = syncWorkerKey ? {
+              ...(t.assigneeTimers || {}),
+              [syncWorkerKey]: {
+                timerRunning: true,
+                startedAt: Number(syncStartedAt) || Date.now(),
+                accumulatedSeconds: Number(syncAccum) || 0,
+                todayWorkSeconds: Number(ev.payload.accumulatedTodaySeconds ?? 0),
+                sessionDate: getTodayStr(),
+                workerId: syncWorkerKey,
+                workerName: ev.payload.activeWorkerName || ev.payload.empName || '',
+                updatedAt: Date.now()
+              }
+            } : t.assigneeTimers;
+
+            if (alreadyRunningForMe) {
+              return { ...t, assigneeTimers: nextAssigneeTimers };
+            }
+
             return {
               ...t,
               timerRunning: true,
               startedAt: Number(syncStartedAt) || Date.now(),
               accumulatedSeconds: Number(syncAccum) || t.accumulatedSeconds || 0,
+              assigneeTimers: nextAssigneeTimers,
               activeWorkerId: ev.payload.activeWorkerId || ev.payload.empKey,
               activeWorkerName: ev.payload.activeWorkerName || ev.payload.empName || ev.payload.startedBy,
               activeWorkerAvatar: ev.payload.activeWorkerAvatar || '',
@@ -1608,7 +1631,12 @@ export const WorkProvider = ({ children }) => {
           if (isTaskRunning) {
             changed = true;
             const todayStr = getTodayStr();
-            const startTs = (isMyActive && activeTimer.startedAt) ? Number(activeTimer.startedAt) : Number(t.startedAt);
+            const isMulti = (Array.isArray(t.assignedToIds) && t.assignedToIds.length > 1) ||
+              (Array.isArray(t.assignees) && t.assignees.length > 1);
+            const myWorkerTimer = isMulti ? getWorkerTaskTimer(t, currentUser) : null;
+            const startTs = (isMyActive && activeTimer.startedAt)
+              ? Number(activeTimer.startedAt)
+              : (myWorkerTimer?.startedAt ? Number(myWorkerTimer.startedAt) : Number(t.startedAt));
             let elapsed = 0;
             if (startTs >= todayMidnightMs && startTs <= now) {
               elapsed = Math.max(0, Math.floor((now - startTs) / 1000));
@@ -1617,13 +1645,22 @@ export const WorkProvider = ({ children }) => {
             // STRICT FROZEN LIFETIME BASELINE: Never read live `t.timerSeconds` (already includes elapsed!)
             const baseLifetime = (isMyActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
               ? Number(activeTimer.accumulatedSeconds)
-              : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
-                ? Number(t.accumulatedSeconds)
-                : Math.max(0, (Number(t.timerSeconds) || 0) - elapsed));
+              : (myWorkerTimer?.accumulatedSeconds !== undefined && myWorkerTimer?.accumulatedSeconds !== null
+                ? Number(myWorkerTimer.accumulatedSeconds)
+                : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+                  ? Number(t.accumulatedSeconds)
+                  : Math.max(0, (Number(t.timerSeconds) || 0) - elapsed)));
 
-            // STRICT FROZEN TODAY BASELINE: Explicit !== undefined && !== null (never `|| t.todayWorkSeconds` since 0 is falsy!)
+            // STRICT FROZEN TODAY BASELINE:
+            // For multi-assignee tasks, NEVER fall back to teammate's shared `t.dailySessions[todayStr]` or `t.todayWorkSeconds`!
             let baseToday = 0;
-            if (isMyActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr) {
+            if (isMulti && isMyActive) {
+              if (activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr) {
+                baseToday = Number(activeTimer.accumulatedTodaySeconds);
+              } else {
+                baseToday = getWorkerDailySessionSeconds(t, currentUser, todayStr);
+              }
+            } else if (isMyActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr) {
               baseToday = Number(activeTimer.accumulatedTodaySeconds);
             } else if (t.dailySessions && t.dailySessions[todayStr] !== undefined && t.dailySessions[todayStr] !== null) {
               baseToday = Number(t.dailySessions[todayStr]);
@@ -1648,7 +1685,7 @@ export const WorkProvider = ({ children }) => {
               timerSeconds: liveLifetimeSecs,
               todayWorkSeconds: liveTodaySecs,
               liveTodaySeconds: liveTodaySecs,
-              dailySessions: { ...(t.dailySessions || {}), [todayStr]: baseToday },
+              dailySessions: isMulti ? t.dailySessions : { ...(t.dailySessions || {}), [todayStr]: baseToday },
               liveDurationText: todayText,
               hoursLoggedText: lifetimeText,
               sessionDate: todayStr
@@ -2901,7 +2938,13 @@ export const WorkProvider = ({ children }) => {
       [currentWorkerId]: {
         ...((targetTask.assigneeSessions && targetTask.assigneeSessions[currentWorkerId]) || {}),
         [today]: existingTodaySecs
-      }
+      },
+      ...(targetWorkerObj?.employeeCode ? {
+        [targetWorkerObj.employeeCode]: {
+          ...((targetTask.assigneeSessions && targetTask.assigneeSessions[targetWorkerObj.employeeCode]) || {}),
+          [today]: existingTodaySecs
+        }
+      } : {})
     };
     const updatedDailySessions = { ...(targetTask.dailySessions || {}), [today]: existingTodaySecs };
     const updatedAll = allTasks.map(t => {
@@ -3336,11 +3379,16 @@ export const WorkProvider = ({ children }) => {
       : (workerSpecificTimer?.startedAt ? Number(workerSpecificTimer.startedAt) : (targetTask.startedAt ? Number(targetTask.startedAt) : now));
     const sessionElapsed = Math.max(0, Math.floor((now - startTs) / 1000));
 
-    // Update worker's specific sessions and total hours
+    // Update worker's specific sessions and total hours (persist under both workerKey and workerIdStr)
+    const isMultiPause = (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds.length > 1) ||
+      (Array.isArray(targetTask.assignees) && targetTask.assignees.length > 1);
     const updatedAssigneeSessions = { ...(targetTask.assigneeSessions || {}) };
-    if (!updatedAssigneeSessions[workerKey]) updatedAssigneeSessions[workerKey] = {};
-    const prevWorkerToday = Number(updatedAssigneeSessions[workerKey][today]) || 0;
-    updatedAssigneeSessions[workerKey][today] = prevWorkerToday + sessionElapsed;
+    const prevWorkerToday = getWorkerDailySessionSeconds(targetTask, workerObj, today);
+    const workerTodayTotal = prevWorkerToday + sessionElapsed;
+    updatedAssigneeSessions[workerKey] = { ...(updatedAssigneeSessions[workerKey] || {}), [today]: workerTodayTotal };
+    if (workerIdStr && workerIdStr !== workerKey) {
+      updatedAssigneeSessions[workerIdStr] = { ...(updatedAssigneeSessions[workerIdStr] || {}), [today]: workerTodayTotal };
+    }
 
     const updatedAssigneeHours = { ...(targetTask.assigneeHours || {}) };
     const prevWorkerTotal = Number(updatedAssigneeHours[workerKey]) || 0;
@@ -3438,18 +3486,20 @@ export const WorkProvider = ({ children }) => {
         }
       }).catch(() => {});
 
-      // AUTO-SAVE TIMESHEET ENTRY: Ensure paused session is safely stored in TIMESHEETS
-      if (updatedTodaySecs > 0) {
+      // AUTO-SAVE TIMESHEET ENTRY: Ensure paused session is safely stored in TIMESHEETS (isolated per worker for multi-assignee)
+      const tsDurationToSave = isMultiPause ? workerTodayTotal : updatedTodaySecs;
+      if (tsDurationToSave > 0) {
         workService.createTimesheet({
           taskId: targetTask._id || taskId,
           taskCode: targetTask.taskCode || 'TSK',
           taskTitle: targetTask.title || 'Task',
           projectName: targetTask.projectName || 'General Work',
           employeeId: activeWorkerId || userKey,
+          employeeCode: realEmpCode,
           employeeName: workerNameStr || currentUser?.name || 'Employee',
           date: today,
-          totalDurationSeconds: updatedTodaySecs,
-          totalDurationText: formatSeconds(updatedTodaySecs),
+          totalDurationSeconds: tsDurationToSave,
+          totalDurationText: formatSeconds(tsDurationToSave),
           memo: 'Task paused session',
           status: 'stopped'
         }).catch(() => {});

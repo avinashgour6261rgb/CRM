@@ -42,7 +42,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, isTaskRunningForUser, getUserDailyTaskBreakdown, getLocalDateString, getIstTimeString, parseTimeToSeconds, syncTaskPauseState } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, isTaskRunningForUser, getUserDailyTaskBreakdown, getLocalDateString, getIstTimeString, parseTimeToSeconds, syncTaskPauseState, getWorkerTaskTimer, getWorkerDailySessionSeconds } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -1890,6 +1890,37 @@ export const DashboardPage = () => {
 
     if (task) {
       const isRunningForTarget = isTaskRunningForUser(task, effectiveTargetUser);
+      const isMulti = (Array.isArray(task.assignedToIds) && task.assignedToIds.length > 1) ||
+        (Array.isArray(task.assignees) && task.assignees.length > 1) ||
+        (Array.isArray(task.assignedMembers) && task.assignedMembers.length > 1);
+
+      if (isMulti) {
+        const wTimer = getWorkerTaskTimer(task, effectiveTargetUser);
+        const wBaseToday = getWorkerDailySessionSeconds(task, effectiveTargetUser, todayStr);
+        const wRunning = Boolean(displayedIsClockedIn && isRunningForTarget);
+        const wStartTs = Number(wTimer?.startedAt || (wRunning ? task.startedAt : 0) || 0);
+        const todayMidnightMs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+        const wElapsed = (wRunning && wStartTs >= todayMidnightMs && wStartTs <= Date.now())
+          ? Math.max(0, Math.floor((Date.now() - wStartTs) / 1000))
+          : 0;
+        const wTodaySecs = wBaseToday + wElapsed;
+        const wTotalSecs = Math.max(Number(wTimer?.accumulatedSeconds || 0) + wElapsed, wTodaySecs);
+
+        return {
+          ...task,
+          timerRunning: wRunning,
+          startedAt: wRunning ? wStartTs : null,
+          todayWorkSeconds: wTodaySecs,
+          liveTodaySeconds: wTodaySecs,
+          accumulatedTodaySeconds: wBaseToday,
+          timerSeconds: wTotalSecs,
+          hoursLogged: +(wTotalSecs / 3600).toFixed(2),
+          liveDurationText: formatTimeDurationSafe(wTodaySecs),
+          isTeammateRunning: Boolean(task.timerRunning && !isRunningForTarget),
+          teammateWorkerName: task.activeWorkerName || task.activeUserName || 'Teammate'
+        };
+      }
+
       if (!displayedIsClockedIn || !isRunningForTarget) {
         return {
           ...task,

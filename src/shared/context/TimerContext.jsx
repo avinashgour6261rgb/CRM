@@ -1096,10 +1096,10 @@ export const TimerProvider = ({ children }) => {
         setBreakSeconds(prev => (effectiveOnBreak ? Math.max(prev, effectiveBreakSecs) : effectiveBreakSecs));
 
         // 🌟 ANTI-FLICKER MULTI-BROWSER SYNC:
-        // Never bounce backwards on small 1-6s network/tab drift; only snap on real desync (> 6s) or cold hydration (prev === 0).
+        // Never bounce backwards on network/tab drift; only snap on real desync (> 30s) or cold hydration (prev === 0).
         setWorkSeconds(prev => {
           if (prev === 0) return effectiveWorkSecs;
-          if (Math.abs(prev - effectiveWorkSecs) > 6) {
+          if (Math.abs(prev - effectiveWorkSecs) > 30) {
             return effectiveWorkSecs;
           }
           return prev;
@@ -1741,14 +1741,9 @@ export const TimerProvider = ({ children }) => {
         const maxPossibleElapsedSinceClockIn = Math.max(0, Math.floor((Date.now() - firstClockInTs) / 1000));
         const maxPossibleNetWorkSecs = Math.max(0, maxPossibleElapsedSinceClockIn - totalBreaks);
 
-        // Absolute Floor: Shift work seconds can NEVER be less than actual task work performed today!
-        const todayTaskSecs = getTodayTaskSecondsForUser();
+        // Total working time = strictly physical shift sessions minus breaks (never inflated/flickered by teammate task times)
         const baseSessionNet = pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks);
-        const liveWorkFloor = Math.max(baseSessionNet, todayTaskSecs);
-        const safeMaxNetWorkSecs = Math.max(maxPossibleNetWorkSecs, todayTaskSecs);
-
-        // Total working time = completed sessions + (current active session minus active & completed breaks in this session)
-        let netWorkSecs = Math.min(safeMaxNetWorkSecs, liveWorkFloor);
+        const netWorkSecs = Math.min(maxPossibleNetWorkSecs, baseSessionNet);
         setWorkSeconds(prev => (prev === netWorkSecs ? prev : netWorkSecs));
 
         // Automatic real-time overtime (work before 10:00 AM or after 07:00 PM; 9h window includes breaks; NO permission required)
