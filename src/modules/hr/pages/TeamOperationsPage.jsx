@@ -42,7 +42,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, getIstTimeString, readTimerStorage, normalizePunchSessions, performShiftClockOut, isTaskRunningForUser, getWorkerTaskTimer } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, getIstTimeString, readTimerStorage, normalizePunchSessions, performShiftClockOut, isTaskRunningForUser, getWorkerTaskTimer, getWorkerDailySessionSeconds } from '../../../shared/utils/timerUtils';
 import { exportToCSV } from '../../../shared/utils/exportUtils';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
@@ -558,12 +558,28 @@ export const TeamOperationsPage = () => {
       // 2. Fallback to WorkContext tasks strictly isolated to THIS specific employee (never match teammate's timer!)
       const liveRunningFromWork = empTasks.find(t => t.status !== 'completed' && !t.completedAt && isTaskRunningForUser(t, emp));
 
-      if (telemAt && telemAt.timerRunning === true && telemAt.startedAt) {
-        const startedAtMs = Number(telemAt.startedAt) || nowMs;
-        const elapsed = effectiveOnBreak ? 0 : Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
-        const taskBase = (telemAt.accumulatedTodaySeconds !== undefined && telemAt.accumulatedTodaySeconds !== null)
+      const matchedWorkerTimer = matchedWorkTaskForTelem ? getWorkerTaskTimer(matchedWorkTaskForTelem, emp) : null;
+      const isTelemSupersededByPause = Boolean(
+        telemAt &&
+        telemAt.timerRunning === true &&
+        matchedWorkerTimer &&
+        matchedWorkerTimer.timerRunning === false &&
+        Number(matchedWorkerTimer.pausedAt || matchedWorkerTimer.updatedAt || 0) >= Number(telemAt.startedAt || 0)
+      );
+
+      if (telemAt && telemAt.timerRunning === true && telemAt.startedAt && !isTelemSupersededByPause) {
+        const startedAtMs = Number(matchedWorkerTimer?.timerRunning && matchedWorkerTimer?.startedAt ? matchedWorkerTimer.startedAt : telemAt.startedAt) || nowMs;
+        const todayMidMs = new Date(new Date(nowMs).setHours(0, 0, 0, 0)).getTime();
+        const elapsed = (!effectiveOnBreak && startedAtMs >= todayMidMs && startedAtMs <= nowMs)
+          ? Math.max(0, Math.floor((nowMs - startedAtMs) / 1000))
+          : 0;
+        const workTodayBase = matchedWorkTaskForTelem ? getWorkerDailySessionSeconds(matchedWorkTaskForTelem, emp, todayStr) : 0;
+        const telemBase = (telemAt.accumulatedTodaySeconds !== undefined && telemAt.accumulatedTodaySeconds !== null)
           ? Number(telemAt.accumulatedTodaySeconds)
           : ((telemAt.todayWorkSeconds !== undefined && telemAt.todayWorkSeconds !== null) ? Number(telemAt.todayWorkSeconds) : 0);
+        const taskBase = (matchedWorkerTimer && Number(matchedWorkerTimer.updatedAt || 0) > Number(telemAt.startedAt || 0))
+          ? workTodayBase
+          : Math.max(workTodayBase, telemBase);
         const liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
         runningTask = {
           ...(matchedWorkTaskForTelem || {}),
@@ -575,7 +591,7 @@ export const TeamOperationsPage = () => {
           projectName: telemAt.projectName || matchedWorkTaskForTelem?.projectName || 'General Work',
           timerRunning: true,
           startedAt: startedAtMs,
-          accumulatedSeconds: Number(telemAt.accumulatedSeconds) || Number(matchedWorkTaskForTelem?.accumulatedSeconds) || 0,
+          accumulatedSeconds: Number(matchedWorkerTimer?.accumulatedSeconds || telemAt.accumulatedSeconds || matchedWorkTaskForTelem?.accumulatedSeconds || 0),
           accumulatedTodaySeconds: taskBase,
           todayWorkSeconds: liveTaskSecs,
           liveTaskSecs,
@@ -583,31 +599,36 @@ export const TeamOperationsPage = () => {
         };
       } else if (liveRunningFromWork) {
         const workerTimer = getWorkerTaskTimer(liveRunningFromWork, emp);
-        const scopedTask = workerTimer
-          ? {
-              ...liveRunningFromWork,
-              timerRunning: Boolean(workerTimer.timerRunning),
-              startedAt: workerTimer.startedAt,
-              todayWorkSeconds: workerTimer.sessionDate === todayStr ? Number(workerTimer.todayWorkSeconds || 0) : 0,
-              accumulatedTodaySeconds: workerTimer.sessionDate === todayStr ? Number(workerTimer.todayWorkSeconds || 0) : 0,
-              accumulatedSeconds: Number(workerTimer.accumulatedSeconds || 0),
-              sessionDate: workerTimer.sessionDate || todayStr
-            }
-          : liveRunningFromWork;
-        const liveTaskSecs = getTaskTodaySeconds(scopedTask, todayStr, nowMs, isClockedIn, effectiveOnBreak);
+        let liveTaskSecs = 0;
+        if (workerTimer) {
+          const wStart = Number(workerTimer.startedAt || liveRunningFromWork.startedAt || 0);
+          const todayMidMs = new Date(new Date(nowMs).setHours(0, 0, 0, 0)).getTime();
+          const wElapsed = (!effectiveOnBreak && isClockedIn && wStart >= todayMidMs && wStart <= nowMs)
+            ? Math.max(0, Math.floor((nowMs - wStart) / 1000))
+            : 0;
+          const wBaseToday = getWorkerDailySessionSeconds(liveRunningFromWork, emp, todayStr);
+          liveTaskSecs = wBaseToday + wElapsed;
+        } else {
+          liveTaskSecs = getTaskTodaySeconds(liveRunningFromWork, todayStr, nowMs, isClockedIn, effectiveOnBreak);
+        }
         runningTask = {
-          ...scopedTask,
+          ...liveRunningFromWork,
           timerRunning: true,
+          startedAt: workerTimer?.startedAt || liveRunningFromWork.startedAt,
           liveTaskSecs,
           liveDurationText: formatSeconds(liveTaskSecs)
         };
-      } else if (telemAt && (telemAt.timerRunning === false || !telemAt.startedAt)) {
+      } else if (telemAt && (telemAt.timerRunning === false || !telemAt.startedAt || isTelemSupersededByPause)) {
         // Explicitly paused task: surface as pausedTask (amber badge + Resume button)
-        const liveTaskSecs = (telemAt.accumulatedTodaySeconds !== undefined && telemAt.accumulatedTodaySeconds !== null)
+        const workPausedBase = matchedWorkTaskForTelem ? getWorkerDailySessionSeconds(matchedWorkTaskForTelem, emp, todayStr) : 0;
+        const telemPausedBase = (telemAt.accumulatedTodaySeconds !== undefined && telemAt.accumulatedTodaySeconds !== null)
           ? Number(telemAt.accumulatedTodaySeconds)
           : ((telemAt.todayWorkSeconds !== undefined && telemAt.todayWorkSeconds !== null)
             ? Number(telemAt.todayWorkSeconds)
             : (matchedWorkTaskForTelem ? getTaskTodaySeconds(matchedWorkTaskForTelem, todayStr, nowMs, false, true) : 0));
+        const liveTaskSecs = matchedWorkerTimer
+          ? workPausedBase
+          : Math.max(workPausedBase, telemPausedBase);
         pausedTask = {
           ...(matchedWorkTaskForTelem || {}),
           _id: telemAt.taskId || matchedWorkTaskForTelem?._id,
