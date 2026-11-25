@@ -29,7 +29,7 @@ import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteTask, canEditAnyTask } from '../../../../shared/utils/permissionUtils';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { getCollection, KEYS } from '../../../../shared/services/storageService';
-import { getWorkerTotalSeconds } from '../../../../shared/utils/timerUtils';
+import { getWorkerTotalSeconds, isTaskRunningForUser, getWorkerTaskTimer } from '../../../../shared/utils/timerUtils';
 import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 export const TaskDetailModal = ({ task, onClose }) => {
@@ -69,12 +69,34 @@ export const TaskDetailModal = ({ task, onClose }) => {
 
   const myId = String(currentUser?._id || '');
   const myCode = currentUser?.employeeCode ? String(currentUser.employeeCode) : '';
-  const activeWorkerIdStr = String(task?.activeWorkerId || task?.activeUserId || '');
+  const myWorkerTimer = task ? getWorkerTaskTimer(task, currentUser) : null;
   const isMyRunning = Boolean(
-    (activeWorkerIdStr && (activeWorkerIdStr === myId || (myCode && activeWorkerIdStr === myCode))) ||
-    (!task?.activeWorkerId && !task?.activeUserId)
+    task && (myWorkerTimer?.timerRunning || (task.timerRunning && isTaskRunningForUser(task, currentUser)))
   );
-  const activeWorkerName = task?.activeWorkerName || task?.activeUserName || task?.assignedToName || 'Team Member';
+  const activeTeammateNames = React.useMemo(() => {
+    if (!task) return [];
+    const names = [];
+    if (Array.isArray(task.assignees) && task.assignees.length > 0) {
+      task.assignees.forEach(a => {
+        if (!a) return;
+        const aId = String(a._id || a.id || '');
+        const aCode = String(a.employeeCode || '');
+        const isMe = (myId && aId === myId) || (myCode && aCode === myCode);
+        if (isMe) return;
+        const wt = getWorkerTaskTimer(task, a);
+        if (wt?.timerRunning) {
+          names.push(a.name || wt.workerName || 'Teammate');
+        }
+      });
+    }
+    if (names.length === 0 && task.timerRunning && !isMyRunning) {
+      const fallback = task.activeWorkerName || task.activeUserName || '';
+      if (fallback) names.push(fallback);
+    }
+    return names;
+  }, [task, myId, myCode, isMyRunning]);
+  const activeWorkerName = activeTeammateNames[0] || task?.activeWorkerName || task?.activeUserName || task?.assignedToName || 'Team Member';
+  const hasAnyRunning = Boolean(isMyRunning || activeTeammateNames.length > 0 || task?.timerRunning);
 
   // Sync edit fields when task changes
   React.useEffect(() => {
@@ -284,19 +306,23 @@ export const TaskDetailModal = ({ task, onClose }) => {
 
           {/* Active Timer Banner */}
           <div className={`flex items-center justify-between px-5 py-4 rounded-[10px] border transition-colors ${
-            task.timerRunning
+            hasAnyRunning
               ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900'
               : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'
           }`}>
             <div>
-              {task.timerRunning ? (
-                <div className="flex items-center gap-2 mb-1">
+              {hasAnyRunning ? (
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {isMyRunning ? 'You are actively working on this task' : `${activeWorkerName} is actively working on this task`}
+                    {isMyRunning
+                      ? (activeTeammateNames.length > 0
+                          ? `You & ${activeTeammateNames.join(', ')} are actively working on this task`
+                          : 'You are actively working on this task')
+                      : `${activeTeammateNames.join(', ') || activeWorkerName} is actively working on this task`}
                   </span>
                   {task.activeWorkerRole && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold">
@@ -309,20 +335,20 @@ export const TaskDetailModal = ({ task, onClose }) => {
                   Work Session Timer
                 </div>
               )}
-              <div className={`text-xl font-extrabold font-mono ${task.timerRunning ? 'text-sky-600 dark:text-sky-400' : 'text-slate-900 dark:text-slate-100'}`}>
+              <div className={`text-xl font-extrabold font-mono ${hasAnyRunning ? 'text-sky-600 dark:text-sky-400' : 'text-slate-900 dark:text-slate-100'}`}>
                 {task.liveDurationText || task.hoursLoggedText || '00:00:00'}
               </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {task.timerRunning ? (
+              {isMyRunning ? (
                 <>
                   <button
                     onClick={() => pauseTaskTimer(task._id)}
                     className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white border-0 px-3.5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-colors"
-                    title={isMyRunning ? "Pause Timer" : `Pause ${activeWorkerName}'s session`}
+                    title="Pause Your Timer"
                   >
-                    <Pause size={14} /> {isMyRunning ? 'Pause' : `Pause (${activeWorkerName.split(' ')[0]})`}
+                    <Pause size={14} /> Pause
                   </button>
                   <button
                     onClick={() => {
@@ -334,12 +360,23 @@ export const TaskDetailModal = ({ task, onClose }) => {
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => startTaskTimer(task._id)}
-                  className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white border-0 px-[18px] py-2 rounded-lg text-[13px] font-semibold cursor-pointer shadow-sm transition-colors"
-                >
-                  <Play size={14} /> Start Tracking
-                </button>
+                <>
+                  <button
+                    onClick={() => startTaskTimer(task._id)}
+                    className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white border-0 px-[18px] py-2 rounded-lg text-[13px] font-semibold cursor-pointer shadow-sm transition-colors"
+                  >
+                    <Play size={14} /> {hasAnyRunning ? 'Start My Timer' : 'Start Tracking'}
+                  </button>
+                  {hasAnyRunning && userCanEdit && (
+                    <button
+                      onClick={() => pauseTaskTimer(task._id)}
+                      className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white border-0 px-3.5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-colors"
+                      title={`Pause ${activeWorkerName}'s session`}
+                    >
+                      <Pause size={14} /> Pause ({activeWorkerName.split(' ')[0]})
+                    </button>
+                  )}
+                </>
               )}
 
               {task.status !== 'completed' ? (
