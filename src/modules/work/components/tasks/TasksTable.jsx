@@ -169,7 +169,10 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
               const isSelected = selectedTaskIds.includes(task._id);
               const isOnLeave = isEmployeeOnLeave(task.assignedToId || task.assignedTo);
               const isMyRunning = isTaskRunningForUser(task, currentUser);
-              const activeWorkerName = task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member';
+              const activeWorkerEntry = task.assigneeTimers && Object.values(task.assigneeTimers).find(v => v?.timerRunning);
+              const activeWorkerName = isMyRunning
+                ? (currentUser?.name || 'You')
+                : (activeWorkerEntry?.workerName || task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member');
 
               return (
                 <tr

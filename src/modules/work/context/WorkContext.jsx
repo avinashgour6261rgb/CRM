@@ -431,14 +431,19 @@ export const WorkProvider = ({ children }) => {
               Object.entries(existing.assigneeTimers).forEach(([wKey, exTimer]) => {
                 if (exTimer && typeof exTimer === 'object') {
                   const curTimer = mergedAssigneeTimers[wKey] || {};
+                  const backendIsNewer = Number(curTimer.updatedAt || 0) > Number(exTimer.updatedAt || 0);
                   mergedAssigneeTimers[wKey] = {
                     ...exTimer,
                     ...curTimer,
-                    accumulatedSeconds: Math.max(Number(exTimer.accumulatedSeconds || 0), Number(curTimer.accumulatedSeconds || 0)),
-                    todayWorkSeconds: Math.max(
-                      exTimer.sessionDate === todayStr ? Number(exTimer.todayWorkSeconds || 0) : 0,
-                      curTimer.sessionDate === todayStr ? Number(curTimer.todayWorkSeconds || 0) : 0
-                    )
+                    accumulatedSeconds: backendIsNewer
+                      ? Number(curTimer.accumulatedSeconds || 0)
+                      : Math.max(Number(exTimer.accumulatedSeconds || 0), Number(curTimer.accumulatedSeconds || 0)),
+                    todayWorkSeconds: backendIsNewer
+                      ? (curTimer.sessionDate === todayStr ? Number(curTimer.todayWorkSeconds || 0) : 0)
+                      : Math.max(
+                          exTimer.sessionDate === todayStr ? Number(exTimer.todayWorkSeconds || 0) : 0,
+                          curTimer.sessionDate === todayStr ? Number(curTimer.todayWorkSeconds || 0) : 0
+                        )
                   };
                 }
               });
@@ -521,22 +526,33 @@ export const WorkProvider = ({ children }) => {
               activeSnapToday
             );
 
+            const nowMergeMs = Date.now();
+            const todayMidMerge = new Date(nowMergeMs);
+            todayMidMerge.setHours(0, 0, 0, 0);
+            const mergeElapsed = (effectiveRunning && effectiveStartedAt && Number(effectiveStartedAt) >= todayMidMerge.getTime() && Number(effectiveStartedAt) <= nowMergeMs)
+              ? Math.max(0, Math.floor((nowMergeMs - Number(effectiveStartedAt)) / 1000))
+              : 0;
+            const liveMergeToday = effectiveTodaySecs + mergeElapsed;
+            const liveMergeTotal = isMultiTask
+              ? getMultiAssigneeCombinedSeconds({ ...existing, ...bt, assigneeTimers: mergedAssigneeTimers, assigneeSessions: mergedAssigneeSessions }, nowMergeMs)
+              : (effectiveAccum + mergeElapsed);
+
             taskMap.set(id, {
               ...existing,
               ...bt,
               timerRunning: effectiveRunning,
               startedAt: effectiveStartedAt,
-              timerSeconds: effectiveAccum,
+              timerSeconds: liveMergeTotal,
               accumulatedSeconds: effectiveAccum,
-              todayWorkSeconds: effectiveTodaySecs,
+              todayWorkSeconds: liveMergeToday,
               accumulatedTodaySeconds: effectiveTodaySecs,
               dailySessions: mergedDailySessions,
               assigneeTimers: mergedAssigneeTimers,
               assigneeSessions: mergedAssigneeSessions,
-              liveTodaySeconds: effectiveTodaySecs,
-              liveDurationText: formatSeconds(effectiveTodaySecs),
-              hoursLoggedText: formatSeconds(effectiveAccum),
-              hoursLogged: +(effectiveAccum / 3600).toFixed(2),
+              liveTodaySeconds: liveMergeToday,
+              liveDurationText: formatSeconds(liveMergeToday),
+              hoursLoggedText: formatSeconds(liveMergeTotal),
+              hoursLogged: +(liveMergeTotal / 3600).toFixed(2),
               sessionDate: effectiveTodaySecs > 0 ? todayStr : (existing.sessionDate || bt.sessionDate || todayStr),
               status: bt.status || existing.status
             });
