@@ -703,7 +703,7 @@ export const workService = {
       try {
         const res = await fetch(`${API_BASE_URL}/tasks/${id}/status`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({ status })
         });
         if (res.ok) {
@@ -1208,7 +1208,7 @@ export const workService = {
       try {
         const res = await fetch(`${API_BASE_URL}/timesheet/${id}`, {
           method: 'PUT',
-          headers: buildJwtAuthHeaders(),
+          headers: { 'Content-Type': 'application/json', ...buildJwtAuthHeaders() },
           body: JSON.stringify(updateData)
         });
         if (res.ok) {
