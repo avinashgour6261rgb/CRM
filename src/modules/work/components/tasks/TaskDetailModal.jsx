@@ -29,6 +29,7 @@ import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteTask, canEditAnyTask } from '../../../../shared/utils/permissionUtils';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { getCollection, KEYS } from '../../../../shared/services/storageService';
+import { getWorkerTotalSeconds } from '../../../../shared/utils/timerUtils';
 import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 export const TaskDetailModal = ({ task, onClose }) => {
@@ -561,9 +562,10 @@ export const TaskDetailModal = ({ task, onClose }) => {
                         <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/60 flex flex-col gap-1">
                           <div className="text-[10.5px] font-bold text-slate-500 dark:text-slate-400">Time Logged by Member:</div>
                           {task.assignees.map(a => {
-                            const aKey = a.employeeCode || a._id;
-                            const secs = Number(task.assigneeHours?.[aKey] ?? task.assigneeHours?.[a._id] ?? task.assigneeHours?.[a.employeeCode] ?? 0);
-                            const hrsText = secs > 0 ? (secs < 3600 ? `${Math.floor(secs / 60)}m` : `${(secs / 3600).toFixed(1)}h`) : '0m';
+                            const secs = getWorkerTotalSeconds(task, a);
+                            const hrsText = secs > 0
+                              ? (secs < 60 ? `${secs}s` : (secs < 3600 ? `${Math.floor(secs / 60)}m` : `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`))
+                              : '0m';
                             return (
                               <div key={a._id || a.id} className="flex justify-between items-center text-[11px]">
                                 <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[140px]">{a.name}</span>

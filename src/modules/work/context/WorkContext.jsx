@@ -17,7 +17,7 @@ import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isSocketConnected } from '../../../shared/services/socketService';
 import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
-import { readTimerStorage, getTimerMirrorKeys, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser, isTaskRunningForUser, getWorkerTaskTimer, getWorkerDailySessionSeconds } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, getTimerMirrorKeys, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser, isTaskRunningForUser, getWorkerTaskTimer, getWorkerDailySessionSeconds, getWorkerTotalSeconds, getMultiAssigneeCombinedSeconds } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -1672,8 +1672,27 @@ export const WorkProvider = ({ children }) => {
               baseToday = Math.max(0, Number(t.todayWorkSeconds) - elapsed);
             }
 
-            const liveLifetimeSecs = baseLifetime + elapsed;
             const liveTodaySecs = baseToday + elapsed;
+            const workerLifetimeSecs = baseLifetime + elapsed;
+            const liveLifetimeSecs = isMulti
+              ? Math.max(
+                  workerLifetimeSecs,
+                  getMultiAssigneeCombinedSeconds({
+                    ...t,
+                    assigneeTimers: {
+                      ...(t.assigneeTimers || {}),
+                      [userKey]: {
+                        ...(myWorkerTimer || {}),
+                        timerRunning: true,
+                        startedAt: startTs,
+                        accumulatedSeconds: baseLifetime,
+                        todayWorkSeconds: baseToday,
+                        sessionDate: todayStr
+                      }
+                    }
+                  }, now)
+                )
+              : workerLifetimeSecs;
 
             const lifetimeText = formatSeconds(liveLifetimeSecs);
             const todayText = formatSeconds(liveTodaySecs);
@@ -2872,17 +2891,20 @@ export const WorkProvider = ({ children }) => {
     }
 
     const workerAccumSecs = existingWorkerTimer ? Number(existingWorkerTimer.accumulatedSeconds || 0) : 0;
-    const storageAccum = Number(taskInStorage?.accumulatedSeconds ?? taskInStorage?.timerSeconds ?? 0);
-    const existingTotalSecs = Math.max(
-      Number(targetTask.accumulatedSeconds ?? targetTask.timerSeconds ?? 0),
-      storageAccum,
-      workerAccumSecs,
-      existingTodaySecs
-    );
-    let existingSecs = Math.max(existingTotalSecs, existingTodaySecs);
+    const workerTotalSecs = isMultiAssignee
+      ? Math.max(workerAccumSecs, getWorkerTotalSeconds(targetTask, targetWorkerObj, now), existingTodaySecs)
+      : Math.max(
+          Number(targetTask.accumulatedSeconds ?? targetTask.timerSeconds ?? 0),
+          Number(taskInStorage?.accumulatedSeconds ?? taskInStorage?.timerSeconds ?? 0),
+          workerAccumSecs,
+          existingTodaySecs
+        );
+    let existingSecs = workerTotalSecs;
     if (activeTimer && String(activeTimer.taskId) === String(taskId) && activeTimer.date === today && !isForOtherEmployee) {
       const activeBase = Number(activeTimer.accumulatedSeconds ?? activeTimer.timerSeconds ?? 0);
-      existingSecs = Math.max(existingSecs, activeBase);
+      if (!isMultiAssignee) {
+        existingSecs = Math.max(existingSecs, activeBase);
+      }
     }
 
     const newTimerState = {
@@ -3393,8 +3415,17 @@ export const WorkProvider = ({ children }) => {
     }
 
     const updatedAssigneeHours = { ...(targetTask.assigneeHours || {}) };
-    const prevWorkerTotal = Number(updatedAssigneeHours[workerKey]) || 0;
-    updatedAssigneeHours[workerKey] = prevWorkerTotal + sessionElapsed;
+    const prevWorkerTotal = Math.max(
+      Number(updatedAssigneeHours[workerKey]) || 0,
+      Number(updatedAssigneeHours[workerIdStr]) || 0,
+      Number(workerSpecificTimer?.accumulatedSeconds) || 0,
+      workerTodayTotal
+    );
+    const workerLifetimeTotal = Math.max(prevWorkerTotal + sessionElapsed, workerTodayTotal);
+    updatedAssigneeHours[workerKey] = workerLifetimeTotal;
+    if (workerIdStr && workerIdStr !== workerKey) {
+      updatedAssigneeHours[workerIdStr] = workerLifetimeTotal;
+    }
 
     const mergedDailyBeforePause = {
       ...(matchesActiveSnap && activeTimer.dailySessions && typeof activeTimer.dailySessions === 'object' ? activeTimer.dailySessions : {}),
@@ -3440,16 +3471,66 @@ export const WorkProvider = ({ children }) => {
       assigneeSessions: updatedAssigneeSessions,
       assigneeHours: updatedAssigneeHours
     };
+    const combinedMultiSecs = isMultiPause
+      ? getMultiAssigneeCombinedSeconds({
+          ...targetTask,
+          assigneeHours: updatedAssigneeHours,
+          assigneeSessions: updatedAssigneeSessions,
+          assigneeTimers: {
+            ...(targetTask.assigneeTimers || {}),
+            [workerKey]: {
+              ...(workerSpecificTimer || {}),
+              timerRunning: false,
+              startedAt: null,
+              pausedAt: now,
+              accumulatedSeconds: workerLifetimeTotal,
+              todayWorkSeconds: workerTodayTotal,
+              sessionDate: today
+            },
+            ...(workerIdStr && workerIdStr !== workerKey ? {
+              [workerIdStr]: {
+                ...(workerSpecificTimer || {}),
+                timerRunning: false,
+                startedAt: null,
+                pausedAt: now,
+                accumulatedSeconds: workerLifetimeTotal,
+                todayWorkSeconds: workerTodayTotal,
+                sessionDate: today
+              }
+            } : {})
+          }
+        }, now)
+      : pausedTask.accumulatedSeconds;
+
+    if (isMultiPause && combinedMultiSecs > 0) {
+      pausedTask.accumulatedSeconds = combinedMultiSecs;
+      pausedTask.timerSeconds = combinedMultiSecs;
+      pausedTask.hoursLogged = +(combinedMultiSecs / 3600).toFixed(2);
+      pausedTask.hoursLoggedText = formatSeconds(combinedMultiSecs);
+    }
+
     const currentSecs = pausedTask.accumulatedSeconds;
     const updatedTodaySecs = pausedTask.todayWorkSeconds;
     const dailySessionsMap = pausedTask.dailySessions;
 
-    const pausedTimerState = {
-      ...pausedTask,
-      taskId: targetTask._id,
-      date: today,
-      pausedAt: now
-    };
+    const pausedTimerState = isMultiPause
+      ? {
+          ...pausedTask,
+          accumulatedSeconds: workerLifetimeTotal,
+          timerSeconds: workerLifetimeTotal,
+          todayWorkSeconds: workerTodayTotal,
+          accumulatedTodaySeconds: workerTodayTotal,
+          liveTodaySeconds: workerTodayTotal,
+          taskId: targetTask._id,
+          date: today,
+          pausedAt: now
+        }
+      : {
+          ...pausedTask,
+          taskId: targetTask._id,
+          date: today,
+          pausedAt: now
+        };
 
     const timerPayload = JSON.stringify(pausedTimerState);
     localStorage.setItem(`ems_active_task_timer_${targetUserKey}`, timerPayload);

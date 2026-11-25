@@ -1368,6 +1368,112 @@ export const getWorkerDailySessionSeconds = (task, user, dateStr) => {
   return maxSecs;
 };
 
+/**
+ * Computes a single assignee's total lifetime seconds on a task (including live elapsed if running).
+ */
+export const getWorkerTotalSeconds = (task, user, nowMs = Date.now()) => {
+  if (!task || !user) return 0;
+  const rawKeys = [
+    user._id,
+    user.id,
+    user.employeeCode,
+    user.email,
+    user.username
+  ].filter(Boolean).map(s => String(s).trim());
+  const lowerKeys = rawKeys.map(k => k.toLowerCase());
+
+  let hoursSecs = 0;
+  if (task.assigneeHours && typeof task.assigneeHours === 'object') {
+    for (const [k, v] of Object.entries(task.assigneeHours)) {
+      if (rawKeys.includes(k) || lowerKeys.includes(String(k).toLowerCase().trim())) {
+        hoursSecs = Math.max(hoursSecs, Number(v) || 0);
+      }
+    }
+  }
+
+  let sessionSumSecs = 0;
+  if (task.assigneeSessions && typeof task.assigneeSessions === 'object') {
+    const mergedDates = {};
+    for (const [k, val] of Object.entries(task.assigneeSessions)) {
+      if (val && typeof val === 'object' && (rawKeys.includes(k) || lowerKeys.includes(String(k).toLowerCase().trim()))) {
+        for (const [d, s] of Object.entries(val)) {
+          mergedDates[d] = Math.max(Number(mergedDates[d]) || 0, Number(s) || 0);
+        }
+      }
+    }
+    sessionSumSecs = Object.values(mergedDates).reduce((acc, v) => acc + (Number(v) || 0), 0);
+  }
+
+  const workerTimer = getWorkerTaskTimer(task, user);
+  const timerBase = workerTimer ? Math.max(Number(workerTimer.accumulatedSeconds) || 0, Number(workerTimer.todayWorkSeconds) || 0) : 0;
+  let liveElapsed = 0;
+  if (workerTimer?.timerRunning && workerTimer?.startedAt) {
+    const todayMidnight = new Date(nowMs);
+    todayMidnight.setHours(0, 0, 0, 0);
+    const startTs = Number(workerTimer.startedAt);
+    if (startTs >= todayMidnight.getTime() && startTs <= nowMs) {
+      liveElapsed = Math.max(0, Math.floor((nowMs - startTs) / 1000));
+    }
+  }
+
+  return Math.max(hoursSecs, sessionSumSecs, timerBase) + liveElapsed;
+};
+
+/**
+ * Computes the combined total seconds logged across ALL unique assignees on a multi-assignee task.
+ * Example: User A (1h) + User B (2h) = 3h against a 4h task budget.
+ */
+export const getMultiAssigneeCombinedSeconds = (task, nowMs = Date.now()) => {
+  if (!task) return 0;
+  const seenUsers = [];
+  const candidates = [];
+
+  if (Array.isArray(task.assignees)) {
+    task.assignees.forEach(a => {
+      if (a && typeof a === 'object') candidates.push(a);
+    });
+  }
+  if (Array.isArray(task.assignedToIds)) {
+    task.assignedToIds.forEach(id => {
+      if (id) candidates.push({ _id: String(id) });
+    });
+  }
+
+  // Deduplicate candidates so the same employee (_id + employeeCode) is never counted twice
+  const uniquePeople = [];
+  candidates.forEach(c => {
+    const keys = [c._id, c.id, c.employeeCode, c.email].filter(Boolean).map(s => String(s).toLowerCase().trim());
+    if (keys.length === 0) return;
+    const already = seenUsers.some(uKeys => keys.some(k => uKeys.includes(k)));
+    if (!already) {
+      seenUsers.push(keys);
+      uniquePeople.push(c);
+    }
+  });
+
+  // Also include any worker key present in assigneeTimers/assigneeHours/assigneeSessions not in assignees array
+  const extraKeys = new Set([
+    ...Object.keys(task.assigneeTimers || {}),
+    ...Object.keys(task.assigneeHours || {}),
+    ...Object.keys(task.assigneeSessions || {})
+  ]);
+  extraKeys.forEach(k => {
+    const lk = String(k).toLowerCase().trim();
+    if (!lk) return;
+    const already = seenUsers.some(uKeys => uKeys.includes(lk));
+    if (!already) {
+      seenUsers.push([lk]);
+      uniquePeople.push({ _id: k });
+    }
+  });
+
+  if (uniquePeople.length === 0) {
+    return Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+  }
+
+  return uniquePeople.reduce((sum, person) => sum + getWorkerTotalSeconds(task, person, nowMs), 0);
+};
+
 export const isTaskRunningForUser = (task, user) => {
   if (!task || !user) return false;
 
