@@ -1171,7 +1171,7 @@ export const TimerProvider = ({ children }) => {
     }
   }, [userKey, hydratedUserKey, currentUser, targetEmpId, targetEmpCode, isRecordForUser]);
 
-  // Socket-aware periodic sync (0ms live sync via Socket.IO; 20s safety-net poll when connected, 5s fallback when offline)
+  // Socket-aware periodic sync (0ms live sync via Socket.IO; 120s safety-net poll when connected, 20s fallback when offline)
   useEffect(() => {
     if (!userKey || hydratedUserKey !== userKey) return;
     syncLiveShiftState();
@@ -1179,9 +1179,9 @@ export const TimerProvider = ({ children }) => {
     const interval = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       pollCounter += 1;
-      if (isSocketConnected() && pollCounter % 4 !== 0) return;
+      if (isSocketConnected() && pollCounter % 6 !== 0) return;
       syncLiveShiftState();
-    }, 5000);
+    }, 20000);
     const handleSync = () => syncLiveShiftState();
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') syncLiveShiftState();
@@ -2633,7 +2633,10 @@ export const TimerProvider = ({ children }) => {
     };
 
     pulseHeartbeat();
-    const hbInterval = setInterval(pulseHeartbeat, 8000);
+    const hbInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      pulseHeartbeat();
+    }, 60000);
     return () => clearInterval(hbInterval);
   }, [isClockedIn, isOnBreak, userKey, hydratedUserKey, targetEmpId, targetEmpCode, breakType]);
 

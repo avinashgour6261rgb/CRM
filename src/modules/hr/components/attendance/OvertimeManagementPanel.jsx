@@ -48,7 +48,10 @@ export const OvertimeManagementPanel = ({ currentUser }) => {
 
   useEffect(() => {
     fetchOvertimeData();
-    const interval = setInterval(fetchOvertimeData, 15000);
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      fetchOvertimeData();
+    }, 60000);
     const handleUpdate = () => fetchOvertimeData();
     window.addEventListener('hrms_storage_change', handleUpdate);
     window.addEventListener('ems_overtime_updated', handleUpdate);

@@ -1193,14 +1193,14 @@ export const WorkProvider = ({ children }) => {
       }
     });
 
-    // Socket-aware periodic safety-net sync (0ms live sync via Socket.IO; 25s poll when connected, 5s fallback when disconnected)
+    // Socket-aware periodic safety-net sync (0ms live sync via Socket.IO; 120s poll when connected, 20s fallback when disconnected)
     let pollTick = 0;
     const syncInterval = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       pollTick += 1;
-      if (isSocketConnected() && pollTick % 5 !== 0) return;
+      if (isSocketConnected() && pollTick % 6 !== 0) return;
       scheduleDebouncedLoad(true);
-    }, 5000);
+    }, 20000);
 
     const handleTelemetryUpdate = (e) => {
       const data = e?.detail;
