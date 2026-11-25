@@ -36,6 +36,7 @@ import { useCRM } from '../../context/CRMContext';
 import { useWork } from '../../../modules/work/context/WorkContext';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import { getWorkerTaskTimer, getWorkerDailySessionSeconds, isTaskRunningForUser, getLocalDateString } from '../../utils/timerUtils';
 
 // Modals
 import { EditProfileModal } from '../modals/EditProfileModal';
@@ -85,7 +86,7 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
 
   // Resolves effective running task with immediate snapshot fallback so header never stays blank
   const effectiveRunningTask = useMemo(() => {
-    if (activeRunningTask && activeRunningTask.timerRunning && activeRunningTask.status !== 'completed' && !activeRunningTask.completedAt) {
+    if (activeRunningTask && activeRunningTask.status !== 'completed' && !activeRunningTask.completedAt && isTaskRunningForUser(activeRunningTask, currentUser)) {
       return activeRunningTask;
     }
     if (!currentUser || !isClockedIn || isOnBreak) return null;
@@ -104,15 +105,9 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
 
     // Fallback 2: Check tasks list from useWork to guarantee header and table never desync
     if (Array.isArray(tasks) && tasks.length > 0) {
-      const uId = String(currentUser._id || currentUser.id || '').toLowerCase();
-      const uCode = String(currentUser.employeeCode || '').toLowerCase();
-      const runningFromList = tasks.find(t => {
-        if (!t.timerRunning || t.status === 'completed' || t.completedAt) return false;
-        const aId = String(t.assignedToId || (typeof t.assignedTo === 'object' ? (t.assignedTo._id || t.assignedTo.id) : t.assignedTo) || '').toLowerCase();
-        const aCode = String(t.assignedToCode || '').toLowerCase();
-        const aIds = Array.isArray(t.assignedToIds) ? t.assignedToIds.map(x => String(x).toLowerCase()) : [];
-        return (uId && (aId === uId || aIds.includes(uId))) || (uCode && (aCode === uCode || aIds.includes(uCode)));
-      });
+      const runningFromList = tasks.find(t =>
+        t.status !== 'completed' && !t.completedAt && isTaskRunningForUser(t, currentUser)
+      );
       if (runningFromList) return runningFromList;
     }
 
@@ -121,29 +116,42 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
 
   // Active Task Live Ticker strictly scoped to running task
   const [taskTick, setTaskTick] = useState(0);
+  const isEffectiveTaskRunning = Boolean(
+    effectiveRunningTask && (isTaskRunningForUser(effectiveRunningTask, currentUser) || effectiveRunningTask.timerRunning)
+  );
   useEffect(() => {
-    if (!effectiveRunningTask?.timerRunning || !isClockedIn || isOnBreak) return;
+    if (!isEffectiveTaskRunning || !isClockedIn || isOnBreak) return;
     const interval = setInterval(() => setTaskTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [effectiveRunningTask?.timerRunning, effectiveRunningTask?._id, isClockedIn, isOnBreak]);
+  }, [isEffectiveTaskRunning, effectiveRunningTask?._id, isClockedIn, isOnBreak]);
 
   const { liveTaskSecs, lifetimeTaskSecs } = useMemo(() => {
     if (!effectiveRunningTask) return { liveTaskSecs: 0, lifetimeTaskSecs: 0 };
-    const startedAt = Number(effectiveRunningTask.startedAt);
-    const isLive = Boolean(effectiveRunningTask.timerRunning && isClockedIn && !isOnBreak && startedAt > 0);
+    const isMulti = (Array.isArray(effectiveRunningTask.assignedToIds) && effectiveRunningTask.assignedToIds.length > 1) ||
+      (Array.isArray(effectiveRunningTask.assignees) && effectiveRunningTask.assignees.length > 1) ||
+      (Array.isArray(effectiveRunningTask.assignedMembers) && effectiveRunningTask.assignedMembers.length > 1);
+    const workerTimer = currentUser ? getWorkerTaskTimer(effectiveRunningTask, currentUser) : null;
+    const startedAt = Number(workerTimer?.startedAt || effectiveRunningTask.startedAt || 0);
+    const todayMidnightMs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+    const isLive = Boolean(isEffectiveTaskRunning && isClockedIn && !isOnBreak && startedAt >= todayMidnightMs && startedAt <= Date.now());
     const elapsed = isLive ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) : 0;
 
-    const baseToday = Number(effectiveRunningTask.accumulatedTodaySeconds ?? effectiveRunningTask.todayWorkSeconds ?? 0);
+    const todayStr = getLocalDateString();
+    const baseToday = isMulti && currentUser
+      ? getWorkerDailySessionSeconds(effectiveRunningTask, currentUser, todayStr)
+      : Number(effectiveRunningTask.accumulatedTodaySeconds ?? effectiveRunningTask.todayWorkSeconds ?? 0);
     const todaySecs = baseToday + elapsed;
 
-    const baseLifetime = Number(effectiveRunningTask.accumulatedSeconds ?? effectiveRunningTask.timerSeconds ?? todaySecs);
+    const baseLifetime = isMulti && workerTimer
+      ? Math.max(Number(workerTimer.accumulatedSeconds || 0), baseToday)
+      : Number(effectiveRunningTask.accumulatedSeconds ?? effectiveRunningTask.timerSeconds ?? todaySecs);
     const lifetimeSecs = baseLifetime + elapsed;
 
     return {
       liveTaskSecs: todaySecs,
       lifetimeTaskSecs: Math.max(lifetimeSecs, todaySecs)
     };
-  }, [effectiveRunningTask, isClockedIn, isOnBreak, taskTick]);
+  }, [effectiveRunningTask, isEffectiveTaskRunning, currentUser, isClockedIn, isOnBreak, taskTick]);
 
   // Dropdown States
   const [showNotifications, setShowNotifications] = useState(false);
