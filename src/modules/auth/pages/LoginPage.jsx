@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ShieldCheck,
   Building2,
   Mail,
   Lock,
   Eye,
   EyeOff,
   ArrowRight,
-  Sparkles,
-  User,
-  Briefcase,
-  Zap
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -21,7 +17,6 @@ import { ForgotPasswordModal } from '../../../shared/components/modals/ForgotPas
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { login, currentUser, isAuthenticated } = useAuth();
-  const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const { addToast } = useToast();
   const [companySettings, setCompanySettings] = useState(() => getCompanySettings());
 
@@ -30,27 +25,6 @@ export const LoginPage = () => {
       navigate('/dashboard', { replace: true });
     }
   }, [currentUser, isAuthenticated, navigate]);
-
-  // Dynamically resolve actual admin credentials from storage
-  const currentAdmin = React.useMemo(() => {
-    try {
-      const emps = JSON.parse(localStorage.getItem('hrms_employees') || '[]');
-      const found = emps.find(e =>
-        e.employeeCode === 'ADM-001' ||
-        e.email === 'admin@inforag.com' ||
-        e.isAdmin ||
-        e.systemRole === 'admin'
-      );
-      if (found) {
-        return {
-          email: found.email || 'admin@inforag.com',
-          employeeCode: found.employeeCode || 'ADM-001',
-          password: found.password || 'admin123'
-        };
-      }
-    } catch (e) {}
-    return { email: 'admin@inforag.com', employeeCode: 'ADM-001', password: 'admin123' };
-  }, []);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -64,69 +38,6 @@ export const LoginPage = () => {
     window.addEventListener('company-settings-updated', handleUpdate);
     return () => window.removeEventListener('company-settings-updated', handleUpdate);
   }, []);
-
-  const demoAccounts = [
-    {
-      id: 'admin',
-      name: 'Administrator',
-      role: 'Master Admin',
-      badge: 'Admin',
-      badgeColorCls: 'text-red-400 bg-red-500/15',
-      email: currentAdmin.email || 'admin@inforag.com',
-      code: currentAdmin.employeeCode || 'ADM-001',
-      password: currentAdmin.password || 'admin123',
-      icon: '👑',
-      desc: 'Full system control, directory, permissions & settings'
-    },
-    {
-      id: 'janvi',
-      name: 'Janvi Hiwse',
-      role: 'HR Specialist & Recruiter',
-      badge: 'HR / Approver',
-      badgeColorCls: 'text-pink-400 bg-pink-500/15',
-      email: 'janvi@inforag.com',
-      code: 'EMP-003',
-      password: 'emp12345',
-      icon: '💼',
-      desc: 'Manage & approve leaves, attendance, notices & reviews'
-    },
-    {
-      id: 'sandeep',
-      name: 'Sandeep Meena',
-      role: 'Team Member',
-      badge: 'Team Member',
-      badgeColorCls: 'text-blue-400 bg-blue-500/15',
-      email: 'sandeep@inforag.com',
-      code: 'EMP-002',
-      password: 'emp12345',
-      icon: '👤',
-      desc: 'Personal tasks, live timer, shift clock & own leaves'
-    }
-  ];
-
-  const fillCredentials = (id, pass) => {
-    setIdentifier(id);
-    setPassword(pass);
-    setLoginError('');
-  };
-
-  const handleQuickLogin = async (id, pass, name) => {
-    setIdentifier(id);
-    setPassword(pass);
-    setLoginError('');
-    setLoading(true);
-    try {
-      const user = await login({ identifier: id, password: pass });
-      addToast(`Logged in as ${user.name || name || id}! Opening workspace...`, 'success');
-      navigate('/dashboard');
-    } catch (err) {
-      const msg = err?.message || 'Login failed. Please verify credentials.';
-      setLoginError(msg);
-      addToast(msg, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -194,74 +105,8 @@ export const LoginPage = () => {
             </div>
 
             <p className="text-[13px] text-slate-400 leading-relaxed mb-5">
-              {isLocalDev
-                ? 'Sign in with your registered account, or use 1-click demo accounts below for local testing.'
-                : 'Sign in with your company work email or Employee ID and password to access your live workspace.'}
+              Sign in with your company work email or Employee ID and password to access your live workspace.
             </p>
-
-            {/* 1-Click Demo Accounts Container (Strictly Localhost Dev Only — Hidden in Production) */}
-            {isLocalDev && (
-            <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 mb-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Zap size={18} className="text-sky-400" />
-                  <span className="text-[13px] font-extrabold text-white tracking-wide">
-                    ⚡ 1-Click Demo Accounts
-                  </span>
-                </div>
-                <span className="text-[11px] text-sky-400 font-bold bg-sky-400/12 px-2 py-0.5 rounded-full">
-                  Tap to Login
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                {demoAccounts.map(acc => (
-                  <div
-                    key={acc.id}
-                    className="bg-slate-950/75 border border-white/10 rounded-xl p-2.5 px-3 flex items-center justify-between gap-2.5 transition-all duration-200"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-sm">{acc.icon}</span>
-                        <strong className="text-[13px] text-white truncate">
-                          {acc.name}
-                        </strong>
-                        <span className={`text-[10px] font-bold px-1.5 py-[1px] rounded ${acc.badgeColorCls}`}>
-                          {acc.badge}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5 flex-wrap">
-                        <span>{acc.email}</span>
-                        <span className="text-slate-600">•</span>
-                        <span className="text-sky-400 font-semibold">Pass: <code className="bg-black/30 px-1 py-[1px] rounded font-mono text-[10.5px]">{acc.password}</code></span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => fillCredentials(acc.email, acc.password)}
-                        title="Auto-fill credentials in form"
-                        className="bg-white/[0.08] hover:bg-white/[0.16] text-slate-300 border-0 py-1.5 px-2 rounded-md text-[11px] font-semibold cursor-pointer transition-colors"
-                      >
-                        Fill
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin(acc.email, acc.password, acc.name)}
-                        disabled={loading}
-                        title={`Instantly open workspace as ${acc.name}`}
-                        className="bg-blue-600 hover:bg-blue-700 text-white border-0 py-1.5 px-2.5 rounded-md text-[11px] font-bold cursor-pointer flex items-center gap-1 whitespace-nowrap shadow-md shadow-blue-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Zap size={12} />
-                        <span>Login</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            )}
 
             {/* Role Access Security Notice */}
             <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 px-3.5 text-xs text-slate-300">
@@ -282,7 +127,7 @@ export const LoginPage = () => {
           </div>
         </div>
 
-        {/* Right Side: Clean Login Form + Fast Demo Switcher */}
+        {/* Right Side: Clean Login Form */}
         <div className="p-8 sm:p-10 flex flex-col justify-center">
           <div className="mb-5">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-bold mb-2.5 w-fit">
@@ -292,56 +137,9 @@ export const LoginPage = () => {
               Sign In to Your Workspace
             </h2>
             <p className="text-[13.5px] text-slate-500 m-0">
-              {isLocalDev
-                ? 'Click any quick demo account or enter your credentials to open your workspace.'
-                : 'Enter your registered work email / Employee ID and password to sign in.'}
+              Enter your registered work email / Employee ID and password to sign in.
             </p>
           </div>
-
-          {/* Fast 1-Click Demo Buttons Bar (Strictly Localhost Dev Only — Hidden in Production) */}
-          {isLocalDev && (
-          <div className="mb-5 p-3 px-3.5 bg-emerald-50/60 border border-emerald-300 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                <Zap size={14} className="text-emerald-600" /> ⚡ 1-Click Fast Login (Tap to Open):
-              </span>
-              <span className="text-[10.5px] text-emerald-700 font-semibold bg-emerald-100 px-1.5 py-0.5 rounded">
-                Instant Access
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123', 'Administrator')}
-                disabled={loading}
-                className="p-2 px-1.5 bg-white dark:bg-slate-800/90 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="text-xs font-bold text-slate-900">👑 Admin</span>
-                <span className="text-[10px] text-slate-500">admin123</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('janvi@inforag.com', 'emp12345', 'Janvi Hiwse')}
-                disabled={loading}
-                className="p-2 px-1.5 bg-white dark:bg-slate-800/90 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="text-xs font-bold text-slate-900">💼 Janvi (HR)</span>
-                <span className="text-[10px] text-slate-500">emp12345</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('sandeep@inforag.com', 'emp12345', 'Sandeep Meena')}
-                disabled={loading}
-                className="p-2 px-1.5 bg-white dark:bg-slate-800/90 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="text-xs font-bold text-slate-900">👤 Sandeep</span>
-                <span className="text-[10px] text-slate-500">emp12345</span>
-              </button>
-            </div>
-          </div>
-          )}
 
           {loginError && (
             <div className="bg-red-50 border border-red-300 rounded-[10px] p-2.5 px-3.5 text-red-700 text-[13px] font-semibold mb-4">
@@ -361,7 +159,7 @@ export const LoginPage = () => {
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. sandeep@inforag.com or EMP-002"
+                  placeholder="e.g. name@company.com or EMP-001"
                   required
                   className="w-full py-3 pr-3.5 pl-[42px] rounded-[10px] border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-800 transition-all"
                 />
@@ -375,35 +173,6 @@ export const LoginPage = () => {
                   Password *
                 </label>
                 <div className="flex items-center gap-1.5">
-                  {isLocalDev && (
-                    <>
-                      <span className="text-[11px] text-slate-400">Fill:</span>
-                      <span
-                        className="text-[11px] text-blue-600 cursor-pointer font-bold hover:underline"
-                        onClick={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123')}
-                        title="Fill Admin"
-                      >
-                        Admin
-                      </span>
-                      <span className="text-slate-300 text-[10px]">•</span>
-                      <span
-                        className="text-[11px] text-pink-600 cursor-pointer font-bold hover:underline"
-                        onClick={() => fillCredentials('janvi@inforag.com', 'emp12345')}
-                        title="Fill Janvi"
-                      >
-                        Janvi
-                      </span>
-                      <span className="text-slate-300 text-[10px]">•</span>
-                      <span
-                        className="text-[11px] text-sky-600 cursor-pointer font-bold hover:underline"
-                        onClick={() => fillCredentials('sandeep@inforag.com', 'emp12345')}
-                        title="Fill Sandeep"
-                      >
-                        Sandeep
-                      </span>
-                      <span className="text-slate-300 text-[10px]">•</span>
-                    </>
-                  )}
                   <span
                     className="text-[11px] text-red-600 cursor-pointer font-semibold hover:underline"
                     onClick={() => setIsForgotModalOpen(true)}
@@ -449,13 +218,6 @@ export const LoginPage = () => {
               )}
             </button>
           </form>
-
-          {/* New Employee Notice */}
-          {isLocalDev && (
-            <div className="mt-[18px] p-2.5 px-3 rounded-[10px] bg-slate-50 border border-slate-200 text-xs text-slate-500 leading-relaxed">
-              💡 <strong>Testing Tip:</strong> Simply tap any demo button above or on the left to immediately log in without typing!
-            </div>
-          )}
         </div>
       </div>
 

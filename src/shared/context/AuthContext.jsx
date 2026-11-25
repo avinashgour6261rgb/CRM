@@ -8,89 +8,7 @@ import { performShiftClockOut } from '../utils/timerUtils';
 
 const AuthContext = createContext();
 
-export const PRESET_USERS = {
-  admin: {
-    _id: '6ad22399c93908b02fffebe0',
-    employeeCode: 'ADM-001',
-    name: 'Administrator',
-    email: 'admin@inforag.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-    role: 'Administrator',
-    systemRole: ROLES.ADMIN,
-    department: 'Management',
-    status: 'active',
-    joiningDate: '2023-01-01',
-    isCurrentUser: true,
-    isAdmin: true,
-    isSuperAdmin: true,
-    password: 'admin123',
-    leaveBalance: { casual: 15, sick: 12, earned: 20, maternity: 0 }
-  },
-  hr: {
-    _id: '6ad363ad24302c31848d32df',
-    employeeCode: 'EMP-003',
-    name: 'Janvi Hiwse',
-    email: 'janvi@inforag.com',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-    role: 'HR Specialist & Recruiter',
-    systemRole: ROLES.HR,
-    department: 'Human Resources',
-    status: 'active',
-    joiningDate: '2024-01-01',
-    isCurrentUser: true,
-    isAdmin: false,
-    password: 'emp12345',
-    leaveBalance: { casual: 14, sick: 10, earned: 18, maternity: 0 }
-  },
-  janvi: {
-    _id: '6ad363ad24302c31848d32df',
-    employeeCode: 'EMP-003',
-    name: 'Janvi Hiwse',
-    email: 'janvi@inforag.com',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-    role: 'HR Specialist & Recruiter',
-    systemRole: ROLES.HR,
-    department: 'Human Resources',
-    status: 'active',
-    joiningDate: '2024-01-01',
-    isCurrentUser: true,
-    isAdmin: false,
-    password: 'emp12345',
-    leaveBalance: { casual: 14, sick: 10, earned: 18, maternity: 0 }
-  },
-  employee: {
-    _id: '6ad5b86d4cd8da54d020b12a',
-    employeeCode: 'EMP-002',
-    name: 'Sandeep Meena',
-    email: 'sandeep@inforag.com',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-    role: 'Team Member',
-    systemRole: ROLES.TEAM_MEMBER,
-    department: 'IT & Software Development',
-    status: 'active',
-    joiningDate: '2024-01-01',
-    isCurrentUser: true,
-    isAdmin: false,
-    password: 'emp12345',
-    leaveBalance: { casual: 12, sick: 10, earned: 15, maternity: 0 }
-  },
-  sandeep: {
-    _id: '6ad5b86d4cd8da54d020b12a',
-    employeeCode: 'EMP-002',
-    name: 'Sandeep Meena',
-    email: 'sandeep@inforag.com',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-    role: 'Team Member',
-    systemRole: ROLES.TEAM_MEMBER,
-    department: 'IT & Software Development',
-    status: 'active',
-    joiningDate: '2024-01-01',
-    isCurrentUser: true,
-    isAdmin: false,
-    password: 'emp12345',
-    leaveBalance: { casual: 12, sick: 10, earned: 15, maternity: 0 }
-  }
-};
+export const PRESET_USERS = {};
 
 const AUTH_STORAGE_KEY = 'ems_auth_session';
 
@@ -440,22 +358,21 @@ export const AuthProvider = ({ children }) => {
 
   // Terminal-scoped role switcher with authoritative DB record pull
   const switchRole = useCallback(async (roleId) => {
+    const employees = getCollection(KEYS.EMPLOYEES) || [];
+    let targetUser = null;
+    if (roleId === 'admin') {
+      targetUser = employees.find(e => e.role?.toLowerCase().includes('admin') || e.isAdmin) || null;
+    } else if (roleId === 'hr') {
+      targetUser = employees.find(e => e.systemRole === 'hr' || e.department === 'Human Resources') || null;
+    } else if (roleId === 'employee' || roleId === 'team_member') {
+      targetUser = employees.find(e => e.systemRole === 'team_member' && !e.isAdmin) || null;
+    }
+    if (!targetUser) return null;
+
     if (currentUser) {
       performShiftClockOut(currentUser, { reason: 'Role Switch' });
     }
-    let targetUser = PRESET_USERS[roleId] || PRESET_USERS.admin;
-    const employees = getCollection(KEYS.EMPLOYEES) || [];
-    let query = '';
-    if (roleId === 'admin') {
-      targetUser = employees.find(e => e.employeeCode === 'ADM-001' || e.role?.toLowerCase().includes('admin') || e.isAdmin) || PRESET_USERS.admin;
-      query = targetUser.email || targetUser.employeeCode || 'admin@inforag.com';
-    } else if (roleId === 'hr') {
-      targetUser = employees.find(e => e.employeeCode === 'EMP-003' || e.employeeCode === 'HR-001' || e.email === 'janvi@inforag.com' || e.department === 'Human Resources') || PRESET_USERS.janvi || PRESET_USERS.hr;
-      query = targetUser.email || targetUser.employeeCode || 'janvi@inforag.com';
-    } else if (roleId === 'employee' || roleId === 'team_member') {
-      targetUser = employees.find(e => e.employeeCode === 'EMP-002' || e.email === 'sandeep@inforag.com' || e.employeeCode === 'ENG-001' || e.department === 'IT & Software Development' || e.department === 'Engineering') || PRESET_USERS.sandeep || PRESET_USERS.employee;
-      query = targetUser.email || targetUser.employeeCode || 'sandeep@inforag.com';
-    }
+    const query = targetUser.email || targetUser.employeeCode || '';
 
     try {
       const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, {
@@ -519,8 +436,6 @@ export const AuthProvider = ({ children }) => {
         const found = employees.find(e => e._id === userOrId || e.id === userOrId || e.employeeCode === userOrId || e.email === userOrId);
         if (found) {
           targetUser = { ...found, isCurrentUser: true };
-        } else if (PRESET_USERS[userOrId]) {
-          targetUser = PRESET_USERS[userOrId];
         }
       }
     }
@@ -538,15 +453,19 @@ export const AuthProvider = ({ children }) => {
     return targetUser;
   }, [currentUser]);
 
-  // Login handler with real credential verification (Email or Employee Code + Password)
-  const login = useCallback(async ({ email, employeeCode, identifier, password, role }) => {
-    let inputId = (identifier || email || employeeCode || '').toLowerCase().trim();
-    if (inputId === 'sandeep@infora.com') {
-      inputId = 'sandeep@inforag.com';
-    }
+  // Login handler with strict backend credential verification (Email or Employee Code + Password)
+  const login = useCallback(async ({ email, employeeCode, identifier, password }) => {
+    const inputId = (identifier || email || employeeCode || '').toLowerCase().trim();
     const cleanPass = (password || '').trim();
 
-    // 1. Primary: Authenticate directly against MongoDB Atlas database
+    if (!inputId) {
+      throw new Error('Please enter your work email or Employee ID.');
+    }
+    if (!cleanPass) {
+      throw new Error('Please enter your password.');
+    }
+
+    // Authenticate strictly against MongoDB Atlas backend
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
@@ -556,6 +475,9 @@ export const AuthProvider = ({ children }) => {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.user) {
+          if (currentUser) {
+            performShiftClockOut(currentUser, { reason: 'New Login' });
+          }
           if (json.token) {
             localStorage.setItem('ems_auth_token', json.token);
           }
@@ -581,126 +503,17 @@ export const AuthProvider = ({ children }) => {
           syncDatabaseToStorage().catch(() => {});
           return dbUser;
         }
+        throw new Error(json.message || 'Authentication failed. Please check your credentials.');
       } else {
         const errJson = await res.json().catch(() => ({}));
-        if (errJson.message) {
-          throw new Error(errJson.message);
-        }
+        throw new Error(errJson.message || 'Invalid credentials. Please verify your email/ID and password.');
       }
     } catch (apiErr) {
-      // If error came from backend with specific rejection message, rethrow it
       if (apiErr.message && !apiErr.message.includes('fetch') && !apiErr.message.includes('NetworkError') && !apiErr.message.includes('Failed to fetch')) {
         throw apiErr;
       }
+      throw new Error('Unable to reach authentication server. Please check your connection and try again.');
     }
-
-    // 2. Fallback: Local offline credential check if backend unreachable
-    const employees = getCollection(KEYS.EMPLOYEES) || [];
-    const adminRecord = employees.find(e =>
-      e.employeeCode === 'ADM-001' ||
-      e.email === 'admin@inforag.com' ||
-      e.email === 'admin@workspace.com' ||
-      e.isAdmin ||
-      e.systemRole === 'admin'
-    ) || PRESET_USERS.admin;
-
-    // Check Admin master credentials (including if admin updated their email or code)
-    const isAdminMatch = (
-      inputId === 'admin@inforag.com' ||
-      inputId === 'admin@workspace.com' ||
-      inputId === 'adm-001' ||
-      inputId === 'admin' ||
-      (adminRecord.email && adminRecord.email.toLowerCase().trim() === inputId) ||
-      (adminRecord.employeeCode && adminRecord.employeeCode.toLowerCase().trim() === inputId)
-    );
-
-    if (isAdminMatch) {
-      const expectedAdminPass = adminRecord.password || 'admin123';
-      if (cleanPass && cleanPass !== expectedAdminPass && cleanPass !== 'admin123' && cleanPass !== '••••••••') {
-        throw new Error('Incorrect password for Admin account.');
-      }
-      const finalizedAdmin = {
-        ...adminRecord,
-        isAdmin: true,
-        isSuperAdmin: true,
-        systemRole: ROLES.ADMIN,
-        isCurrentUser: true
-      };
-      setCurrentUser(finalizedAdmin);
-      setIsAuthenticated(true);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(finalizedAdmin));
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
-      return finalizedAdmin;
-    }
-
-    // 2. Offline fallback: search registered employees in local storage cache
-    let matchedUser = employees.find(e =>
-      (e.email && e.email.toLowerCase().trim() === inputId) ||
-      (e.employeeCode && e.employeeCode.toLowerCase().trim() === inputId) ||
-      (e._id && String(e._id).toLowerCase().trim() === inputId)
-    );
-
-    // 3. Check Presets (offline dev fallback only)
-    if (!matchedUser) {
-      if (inputId === 'janvi@inforag.com' || inputId === 'janvi' || inputId === 'hr@inforag.com' || inputId === 'hr-001' || inputId === 'emp-003' || role === 'hr') {
-        matchedUser = PRESET_USERS.janvi || PRESET_USERS.hr;
-      } else if (inputId === 'sandeep@inforag.com' || inputId === 'sandeep@infora.com' || inputId === 'sandeep' || inputId === 'emp-002' || inputId === 'employee@inforag.com' || inputId === 'eng-001' || role === 'employee') {
-        matchedUser = PRESET_USERS.sandeep || PRESET_USERS.employee;
-      }
-    }
-
-    if (!matchedUser) {
-      throw new Error(`User with Email / ID "${inputId}" was not found. Please contact Admin.`);
-    }
-
-    const isUserInactive = String(matchedUser.employeeCode || '').toUpperCase() !== 'ADM-001' &&
-      ['resigned', 'inactive', 'terminated', 'suspended', 'archived', 'relieved'].includes(String(matchedUser.status || 'active').toLowerCase());
-    if (isUserInactive) {
-      throw new Error('Your account has been deactivated or relieved. Please contact HR or Administrator.');
-    }
-
-    // Verify Password (strictly against user's custom password if set, else emp12345)
-    const expectedUserPass = matchedUser.password || 'emp12345';
-    if (cleanPass && cleanPass !== '••••••••') {
-      const isPassValid = cleanPass === expectedUserPass || cleanPass === 'emp12345' || (expectedUserPass === 'emp123' && cleanPass === 'emp12345') || (cleanPass === 'emp123');
-      if (!isPassValid) {
-        throw new Error('Incorrect password. Please verify your credentials or contact Admin.');
-      }
-    }
-
-        const isMatchedAdmin = matchedUser.systemRole === 'admin' || matchedUser.isAdmin || matchedUser.role?.toLowerCase().includes('admin');
-    const finalizedUser = {
-      ...matchedUser,
-      isCurrentUser: true,
-      isAdmin: isMatchedAdmin ? true : !!matchedUser.isAdmin,
-      isSuperAdmin: isMatchedAdmin ? true : !!matchedUser.isSuperAdmin,
-      isDelegatedAdmin: !!matchedUser.isDelegatedAdmin,
-      delegationExpiresAt: matchedUser.delegationExpiresAt || null,
-      permissions: (matchedUser.permissions && typeof matchedUser.permissions === 'object') ? matchedUser.permissions : {},
-      systemRole: matchedUser.systemRole || (isMatchedAdmin ? ROLES.ADMIN : (matchedUser.role?.toLowerCase().includes('hr') ? ROLES.HR : ROLES.TEAM_MEMBER))
-    };
-
-    if (matchedUser.permissions && typeof matchedUser.permissions === 'object') {
-      try {
-        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
-        const parsedMap = rawMap ? JSON.parse(rawMap) : {};
-        if (matchedUser._id) parsedMap[String(matchedUser._id)] = matchedUser.permissions;
-        if (matchedUser.employeeCode) parsedMap[String(matchedUser.employeeCode)] = matchedUser.permissions;
-        if (matchedUser.email) parsedMap[String(matchedUser.email).toLowerCase()] = matchedUser.permissions;
-        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
-      } catch (_) {}
-    }
-
-    if (currentUser) {
-      performShiftClockOut(currentUser, { reason: 'New Login' });
-    }
-
-    setCurrentUser(finalizedUser);
-    setIsAuthenticated(true);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(finalizedUser));
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
-    syncDatabaseToStorage().catch(() => {});
-    return finalizedUser;
   }, [currentUser]);
 
   // Logout handler: cleanly pauses running task timer, stops shift clock, and logs out

@@ -71,7 +71,7 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
     handleClockOut
   } = useTimer();
 
-  const { currentUser: authUser, logout: authLogout, switchRole } = useAuth();
+  const { currentUser: authUser, logout: authLogout } = useAuth();
   const { currentUser: hrUser, leaves, employees, updateEmployee } = useHR();
   const currentUser = authUser || hrUser;
 
