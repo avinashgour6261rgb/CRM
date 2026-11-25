@@ -1906,18 +1906,34 @@ export const DashboardPage = () => {
         const wTodaySecs = wBaseToday + wElapsed;
         const wTotalSecs = Math.max(Number(wTimer?.accumulatedSeconds || 0) + wElapsed, wTodaySecs);
 
+        const teammateNames = [];
+        if (Array.isArray(task.assignees)) {
+          task.assignees.forEach(a => {
+            if (!a) return;
+            const wt = getWorkerTaskTimer(task, a);
+            const isTarget = (effectiveTargetUser?._id && String(a._id) === String(effectiveTargetUser._id)) ||
+              (effectiveTargetUser?.employeeCode && String(a.employeeCode) === String(effectiveTargetUser.employeeCode));
+            if (!isTarget && wt?.timerRunning) {
+              teammateNames.push(a.name || wt.workerName || 'Teammate');
+            }
+          });
+        }
+
         return {
           ...task,
           timerRunning: wRunning,
           startedAt: wRunning ? wStartTs : null,
+          activeWorkerId: wRunning ? (effectiveTargetUser?._id || effectiveTargetUser?.employeeCode) : null,
+          activeWorkerName: wRunning ? (effectiveTargetUser?.name || '') : (teammateNames[0] || ''),
+          activeUserName: wRunning ? (effectiveTargetUser?.name || '') : (teammateNames[0] || ''),
           todayWorkSeconds: wTodaySecs,
           liveTodaySeconds: wTodaySecs,
           accumulatedTodaySeconds: wBaseToday,
           timerSeconds: wTotalSecs,
           hoursLogged: +(wTotalSecs / 3600).toFixed(2),
           liveDurationText: formatTimeDurationSafe(wTodaySecs),
-          isTeammateRunning: Boolean(task.timerRunning && !isRunningForTarget),
-          teammateWorkerName: task.activeWorkerName || task.activeUserName || 'Teammate'
+          isTeammateRunning: Boolean(!wRunning && teammateNames.length > 0),
+          teammateWorkerName: teammateNames.join(', ') || 'Teammate'
         };
       }
 

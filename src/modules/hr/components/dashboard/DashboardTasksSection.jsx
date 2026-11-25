@@ -8,6 +8,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
+import { isTaskRunningForUser, getWorkerTaskTimer } from '../../../../shared/utils/timerUtils';
 
 export const DashboardTasksSection = ({
   dashboardTaskScope = 'assigned_to_me',
@@ -188,14 +189,19 @@ export const DashboardTasksSection = ({
                   const isDueToday = !isDone && !task.isUntimed && !task.hasNoDueDate && task.dueDate === todayStr;
                   const isRunningTask = task.timerRunning;
 
-                  const myId = String(currentUser?._id || '');
-                  const myCode = currentUser?.employeeCode ? String(currentUser.employeeCode) : '';
-                  const activeWorkerIdStr = String(task.activeWorkerId || task.activeUserId || '');
+                  const myWorkerTimer = getWorkerTaskTimer(task, currentUser);
                   const isMyRunning = Boolean(
-                    (activeWorkerIdStr && (activeWorkerIdStr === myId || (myCode && activeWorkerIdStr === myCode))) ||
-                    (!task.activeWorkerId && !task.activeUserId)
+                    myWorkerTimer?.timerRunning || (task.timerRunning && isTaskRunningForUser(task, currentUser))
                   );
-                  const activeWorkerName = task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member';
+                  let activeWorkerName = task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member';
+                  if (isMyRunning) {
+                    activeWorkerName = currentUser?.name || 'You';
+                  } else if (task.assigneeTimers && typeof task.assigneeTimers === 'object') {
+                    const runningEntry = Object.values(task.assigneeTimers).find(wt => wt && wt.timerRunning);
+                    if (runningEntry?.workerName) {
+                      activeWorkerName = runningEntry.workerName;
+                    }
+                  }
 
                   return (
                     <tr
