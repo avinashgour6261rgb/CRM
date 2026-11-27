@@ -409,21 +409,9 @@ export const TasksPage = () => {
         </div>
       </div>
 
-      {/* Action Sub-Bar: + Add Task, All / Assigned to Me / Assigned by Me, Export, View Mode */}
+      {/* Action Sub-Bar: All / Assigned to Me / Assigned by Me, View Mode */}
       <div className="flex items-center justify-between flex-wrap gap-2 w-full">
         <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
-          {/* Add Task Button */}
-          {canCreate && (
-            <button
-              id="btn-add-task"
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-1.25 bg-sky-600 hover:bg-sky-700 text-white border-0 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.3)] transition-all h-[32px]"
-            >
-              <Plus size={14} />
-              Assign New Task
-            </button>
-          )}
-
           {/* Scope Filter Pills (All / Assigned To Me / Assigned By Me) */}
           <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700 gap-0.5 h-[32px] items-center overflow-x-auto max-w-full">
             {canViewAllTasks && (
@@ -526,25 +514,6 @@ export const TasksPage = () => {
               ✅ Recently Completed
             </button>
           </div>
-
-          {/* Assignment History Button */}
-          <button
-            onClick={() => setIsHistoryModalOpen(true)}
-            title="View complete project task assignment & activity audit history"
-            className="flex items-center gap-1.25 bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer h-[32px] shadow-[0_1px_2px_rgba(15,118,110,0.08)] hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-colors"
-          >
-            <History size={13} className="text-teal-700 dark:text-teal-400" />
-            Assignment History
-          </button>
-
-          {/* Export Button */}
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.25 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer h-[32px] hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
-          >
-            <Download size={13} />
-            Export
-          </button>
         </div>
 
         {/* View Switchers: Table, Kanban */}

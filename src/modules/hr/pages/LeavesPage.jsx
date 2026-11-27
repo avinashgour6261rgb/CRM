@@ -255,14 +255,16 @@ export const LeavesPage = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setIsNewLeaveOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-emerald-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-emerald-700 transition-colors"
-            title="Apply for a new leave"
-          >
-            <Plus size={13} />
-            <span>Apply Leave</span>
-          </button>
+          {pageTab === 'leaves' && (
+            <button
+              onClick={() => setIsNewLeaveOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-emerald-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-emerald-700 transition-colors"
+              title="Apply for a new leave"
+            >
+              <Plus size={13} />
+              <span>Apply Leave</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -498,15 +500,6 @@ export const LeavesPage = () => {
         </div>
 
         <div className="filter-right-group">
-          {/* New Leave Button */}
-          <button
-            onClick={() => setIsNewLeaveOpen(true)}
-            className="btn btn-primary"
-          >
-            <Plus size={16} />
-            <span>New Leave</span>
-          </button>
-
           {/* Export Button */}
           {canExport && (
             <button
