@@ -1909,7 +1909,7 @@ export const hrService = {
 
   async reviewResignation(resignationId, reviewData) {
     const res = await fetchWithFallback(`${API_BASE}/resignations/${resignationId}/review`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(reviewData)
     }, async () => {
       const resignations = getCollection(KEYS.RESIGNATIONS) || [];

@@ -25,8 +25,9 @@ export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) 
   useEffect(() => {
     if (resignation) {
       setPendingAssets(getEmployeePendingAssets(resignation));
+      setApprovedLastDay(resignation.proposedLastWorkingDay || today);
     }
-  }, [resignation, isHandoverOpen]);
+  }, [resignation, isHandoverOpen, today]);
 
   if (!isOpen || !resignation) return null;
 

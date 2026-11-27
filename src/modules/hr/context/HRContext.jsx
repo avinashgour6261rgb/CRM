@@ -699,6 +699,14 @@ export const HRProvider = ({ children }) => {
   const reviewResignation = async (resignationId, reviewData) => {
     try {
       const res = await hrService.reviewResignation(resignationId, reviewData);
+      const updatedRec = res?.data || res;
+      if (updatedRec && (updatedRec.id || updatedRec._id)) {
+        setResignations(prev => prev.map(r =>
+          (String(r.id) === String(resignationId) || String(r._id) === String(resignationId))
+            ? { ...r, ...updatedRec }
+            : r
+        ));
+      }
       addToast(`Resignation ${reviewData.status || 'reviewed'} successfully`, 'success');
       await loadData();
       return res;
