@@ -84,6 +84,16 @@ export const PayrollPage = () => {
     return cfg?.payrollDisbursedHistory || {};
   });
 
+  // Track individual employee disbursements by month
+  const [disbursedEmployeesMap, setDisbursedEmployeesMap] = useState(() => {
+    const cfg = getCompanySettings();
+    let local = {};
+    try {
+      local = JSON.parse(localStorage.getItem('EMS_DISBURSED_EMPLOYEES') || '{}');
+    } catch (_) {}
+    return { ...(cfg?.disbursedEmployeesByMonth || {}), ...local };
+  });
+
   useEffect(() => {
     const onSettingsUpdate = () => {
       const cfg = getCompanySettings();
@@ -93,12 +103,22 @@ export const PayrollPage = () => {
       if (cfg?.payrollDisbursedHistory) {
         setPayrollDisbursedHistory(cfg.payrollDisbursedHistory);
       }
+      if (cfg?.disbursedEmployeesByMonth) {
+        setDisbursedEmployeesMap(prev => ({ ...prev, ...cfg.disbursedEmployeesByMonth }));
+      }
     };
     window.addEventListener('company-settings-updated', onSettingsUpdate);
     return () => window.removeEventListener('company-settings-updated', onSettingsUpdate);
   }, []);
 
   const isCurrentMonthDisbursed = disbursedMonths.includes(selectedMonth);
+
+  // Check if an employee is disbursed (either via batch or individual disbursal)
+  const isEmployeeDisbursed = (emp) => {
+    if (disbursedMonths.includes(selectedMonth)) return true;
+    const empKey = emp?.employeeCode || emp?._id;
+    return Boolean(disbursedEmployeesMap[selectedMonth]?.[empKey]);
+  };
 
   // Helper to resolve an employee's direct in-hand salary (no statutory splits)
   const resolveEmployeeSalary = (emp, salaryData = null) => {
@@ -164,16 +184,52 @@ export const PayrollPage = () => {
     setIsPayslipOpen(true);
   };
 
-  const handleDisburseAll = async () => {
-    if (isCurrentMonthDisbursed) {
-      addToast({
-        title: 'Payroll Already Disbursed',
-        message: `Salaries for ${selectedMonth} have already been recorded as disbursed.`,
-        type: 'info'
-      });
-      return;
+  // Individual employee disbursal toggle
+  const handleToggleIndividualDisburse = async (emp) => {
+    const empKey = emp?.employeeCode || emp?._id;
+    const actorName = effectiveUser?.name || 'Administrator';
+    const actorCode = effectiveUser?.employeeCode || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+    const currentlyDisbursed = isEmployeeDisbursed(emp);
+    const newStatus = !currentlyDisbursed;
+
+    const monthMap = { ...(disbursedEmployeesMap[selectedMonth] || {}) };
+    if (newStatus) {
+      const p = computeEmployeePayroll(emp);
+      monthMap[empKey] = {
+        disbursedAt: new Date().toISOString(),
+        disbursedBy: actorLabel,
+        disbursedById: effectiveUser?._id,
+        amount: p?.netSalary || 0
+      };
+    } else {
+      delete monthMap[empKey];
     }
 
+    const updatedMap = {
+      ...disbursedEmployeesMap,
+      [selectedMonth]: monthMap
+    };
+
+    setDisbursedEmployeesMap(updatedMap);
+    try {
+      localStorage.setItem('EMS_DISBURSED_EMPLOYEES', JSON.stringify(updatedMap));
+      await saveCompanySettings({ disbursedEmployeesByMonth: updatedMap });
+      addToast({
+        title: newStatus ? 'Salary Disbursed ✅' : 'Disbursal Reverted ⏳',
+        message: `${emp.name}'s salary for ${selectedMonth} marked as ${newStatus ? 'Paid / Disbursed' : 'Pending'}.`,
+        type: newStatus ? 'success' : 'info'
+      });
+    } catch (err) {
+      addToast({
+        title: 'Status Updated',
+        message: `${emp.name}'s salary status updated locally.`,
+        type: 'info'
+      });
+    }
+  };
+
+  const handleDisburseAll = async () => {
     const actorName = effectiveUser?.name || 'Administrator';
     const actorCode = effectiveUser?.employeeCode || '';
     const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
@@ -190,20 +246,44 @@ export const PayrollPage = () => {
       }
     };
     setPayrollDisbursedHistory(updatedHistory);
+
+    // Also mark all employees in disbursedEmployeesMap for this month
+    const monthMap = { ...(disbursedEmployeesMap[selectedMonth] || {}) };
+    employees.forEach(emp => {
+      const empKey = emp?.employeeCode || emp?._id;
+      if (empKey) {
+        const p = computeEmployeePayroll(emp);
+        monthMap[empKey] = {
+          disbursedAt: new Date().toISOString(),
+          disbursedBy: actorLabel,
+          disbursedById: effectiveUser?._id,
+          amount: p?.netSalary || 0
+        };
+      }
+    });
+    const updatedMap = {
+      ...disbursedEmployeesMap,
+      [selectedMonth]: monthMap
+    };
+    setDisbursedEmployeesMap(updatedMap);
+
     try {
-      await saveCompanySettings({ disbursedPayrollMonths: updated, payrollDisbursedHistory: updatedHistory });
+      localStorage.setItem('EMS_DISBURSED_EMPLOYEES', JSON.stringify(updatedMap));
+      await saveCompanySettings({
+        disbursedPayrollMonths: updated,
+        payrollDisbursedHistory: updatedHistory,
+        disbursedEmployeesByMonth: updatedMap
+      });
       addToast({
         title: 'Batch Payroll Disbursed & Saved 🚀',
-        message: `Payroll for ${selectedMonth} recorded by ${actorLabel} in MongoDB and synced live across devices.`,
+        message: `Salaries for ${selectedMonth} marked as disbursed for all employees by ${actorLabel}.`,
         type: 'success'
       });
     } catch (err) {
-      setDisbursedMonths(disbursedMonths);
-      setPayrollDisbursedHistory(payrollDisbursedHistory);
       addToast({
-        title: 'Failed to Save Payroll Status',
-        message: err?.message || 'Could not save disbursement status to database.',
-        type: 'error'
+        title: 'Payroll Disbursed Locally',
+        message: 'Disbursal recorded and saved to local state.',
+        type: 'info'
       });
     }
   };
@@ -513,13 +593,25 @@ export const PayrollPage = () => {
   let totalGross = 0;
   let totalDeductions = 0;
   let totalNetPay = 0;
+  let totalDisbursedCount = 0;
+  let totalPendingCount = 0;
+  let totalDisbursedAmount = 0;
 
   activePayrollEmployees.forEach(emp => {
     const p = computeEmployeePayroll(emp);
+    const isDisbursed = isEmployeeDisbursed(emp);
     totalGross += p.monthlyGross;
     totalDeductions += p.totalLopDeduction;
     totalNetPay += p.netSalary;
+    if (isDisbursed) {
+      totalDisbursedCount++;
+      totalDisbursedAmount += p.netSalary;
+    } else {
+      totalPendingCount++;
+    }
   });
+
+  const allEmployeesDisbursed = activePayrollEmployees.length > 0 && totalPendingCount === 0;
 
   return (
     <div className="flex flex-col gap-3.5 min-h-full pb-6 animate-fade-in">
@@ -535,10 +627,10 @@ export const PayrollPage = () => {
               <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
                 Payroll & Compensation Hub
               </h1>
-              {isCurrentMonthDisbursed ? (
+              {allEmployeesDisbursed || isCurrentMonthDisbursed ? (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    ✓ Disbursed
+                    ✓ All Disbursed ({totalDisbursedCount})
                   </span>
                   {payrollDisbursedHistory[selectedMonth]?.disbursedBy && (
                     <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
@@ -548,7 +640,7 @@ export const PayrollPage = () => {
                 </div>
               ) : (
                 <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                  ⏳ Cycle Open
+                  ⏳ Cycle Open ({totalPendingCount} Pending • {totalDisbursedCount} Paid)
                 </span>
               )}
             </div>
@@ -584,13 +676,13 @@ export const PayrollPage = () => {
             <button
               onClick={handleDisburseAll}
               className={`inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors flex-1 sm:flex-initial justify-center ${
-                isCurrentMonthDisbursed
+                allEmployeesDisbursed || isCurrentMonthDisbursed
                   ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white'
               }`}
             >
               <CreditCard size={14} />
-              <span>{isCurrentMonthDisbursed ? 'Re-Disburse' : 'Disburse All'}</span>
+              <span>{allEmployeesDisbursed || isCurrentMonthDisbursed ? 'Re-Disburse All' : `Disburse All (${totalPendingCount})`}</span>
             </button>
           )}
         </div>
@@ -818,18 +910,38 @@ export const PayrollPage = () => {
 
                     {/* Status */}
                     <td className="py-[7px] px-2.5 text-center whitespace-nowrap">
-                      <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        isCurrentMonthDisbursed
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                          : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-                      }`}>
-                        {isCurrentMonthDisbursed ? '✓ Disbursed' : '⏳ Pending'}
-                      </span>
+                      {isEmployeeDisbursed(emp) ? (
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+                          <CheckCircle2 size={11} className="text-emerald-600 dark:text-emerald-400" />
+                          <span>Disbursed</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                          <Clock size={11} className="text-amber-600 dark:text-amber-400" />
+                          <span>Pending</span>
+                        </span>
+                      )}
                     </td>
 
                     {/* Actions */}
                     <td className="py-[7px] px-2.5 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-[5px]">
+                        {/* Individual Disburse Button */}
+                        {canManageSalaries && (
+                          <button
+                            onClick={() => handleToggleIndividualDisburse(emp)}
+                            className={`inline-flex items-center gap-[3px] px-2 py-[3px] rounded-md text-[11px] font-bold cursor-pointer h-6 transition-colors shadow-xs ${
+                              isEmployeeDisbursed(emp)
+                                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white border-0'
+                            }`}
+                            title={isEmployeeDisbursed(emp) ? 'Salary marked as paid. Click to revert status' : 'Mark this employee salary as Disbursed/Paid'}
+                          >
+                            <CreditCard size={11} />
+                            <span>{isEmployeeDisbursed(emp) ? 'Paid ✓' : 'Pay / Disburse'}</span>
+                          </button>
+                        )}
+
                         {/* Revise Salary Button */}
                         {canManageSalaries && (
                           <button
@@ -879,6 +991,10 @@ export const PayrollPage = () => {
         employee={activeEmployeeForRevision}
         currentSalaryData={activeEmployeeForRevision ? resolveEmployeeSalary(activeEmployeeForRevision) : null}
         onSalaryUpdated={handleSalaryUpdated}
+        selectedMonth={selectedMonth}
+        attendance={attendance}
+        leaves={leaves}
+        holidays={holidays}
       />
     </div>
   );

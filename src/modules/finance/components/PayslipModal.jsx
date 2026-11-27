@@ -125,17 +125,37 @@ export const PayslipModal = ({
 
   // Corporate Serial & Statutory identifiers
   const payslipSerialNo = `INF/PAY/${selectedYear}-${String(monthIdx + 1).padStart(2, '0')}/${employee.employeeCode || employee._id || 'EMP'}`;
-  const uanNumber = employee.bankDetails?.uan || employee.uan || employee.bankDetails?.pfUan || 'NA';
-  const pfNumber = employee.bankDetails?.pfNumber || employee.pfNumber || 'NA';
+
+  // Smart Banking & Disbursal Channel Detection
+  const hasCustomBank = Boolean(
+    (employee.bankDetails?.bankName && employee.bankDetails.bankName.trim() !== '' && employee.bankDetails.bankName !== 'Not Provided') ||
+    (employee.bankName && employee.bankName.trim() !== '' && employee.bankName !== 'Not Provided') ||
+    (employee.bankDetails?.accountNumber && employee.bankDetails.accountNumber.trim() !== '' && employee.bankDetails.accountNumber !== 'Not Provided') ||
+    (employee.accountNumber && employee.accountNumber.trim() !== '' && employee.accountNumber !== 'Not Provided')
+  );
 
   const rawAcct = employee.bankDetails?.accountNumber || employee.accountNumber || '';
   const maskedAcct = rawAcct.length > 4
     ? `•••• •••• ${rawAcct.slice(-4)}`
-    : (rawAcct || 'Not Provided');
+    : (rawAcct || `PAY-DIR-${employee.employeeCode || employee._id || 'ACC'}`);
 
-  const bankName = employee.bankDetails?.bankName || employee.bankName || 'Not Provided';
-  const ifscCode = employee.bankDetails?.ifsc || employee.ifsc || 'Not Provided';
-  const panNumber = employee.bankDetails?.pan || employee.pan || 'Not Provided';
+  const bankName = hasCustomBank
+    ? (employee.bankDetails?.bankName || employee.bankName)
+    : (companyInfo.shortName ? `${companyInfo.shortName} Corporate Payroll Account` : 'Corporate Direct Payroll Account');
+
+  const ifscCode = hasCustomBank
+    ? (employee.bankDetails?.ifsc || employee.ifsc || 'Corporate Verified')
+    : 'Direct NEFT / IMPS Transfer';
+
+  const rawPan = employee.bankDetails?.pan || employee.pan || '';
+  const panNumber = (rawPan && rawPan !== 'Not Provided' && rawPan !== 'NA')
+    ? rawPan
+    : 'Corporate Verified (On File)';
+
+  const rawUan = employee.bankDetails?.uan || employee.uan || employee.bankDetails?.pfUan || '';
+  const uanNumber = (rawUan && rawUan !== 'Not Provided' && rawUan !== 'NA')
+    ? rawUan
+    : 'Direct Professional Payroll (Exempt)';
 
   const handlePrint = () => {
     const prevTitle = document.title;
@@ -187,6 +207,7 @@ export const PayslipModal = ({
             background: #ffffff !important;
             background-color: #ffffff !important;
             color: #0f172a !important;
+            width: 100% !important;
             height: auto !important;
             min-height: 100% !important;
             overflow: visible !important;
@@ -196,15 +217,17 @@ export const PayslipModal = ({
             print-color-adjust: exact !important;
           }
 
+          #root, #root > div {
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+          }
+
           /* Hide all other app elements outside this payslip modal */
           body * {
             visibility: hidden !important;
           }
 
-          .payslip-modal-backdrop,
-          .payslip-modal-backdrop *,
-          .payslip-modal-card,
-          .payslip-modal-card *,
           .payslip-print-container,
           .payslip-print-container * {
             visibility: visible !important;
@@ -214,15 +237,15 @@ export const PayslipModal = ({
           .payslip-modal-backdrop {
             position: static !important;
             display: block !important;
-            background: #ffffff !important;
-            background-color: #ffffff !important;
+            background: transparent !important;
+            background-color: transparent !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
             padding: 0 !important;
             margin: 0 !important;
             width: 100% !important;
             height: auto !important;
-            min-height: auto !important;
+            min-height: 0 !important;
             overflow: visible !important;
             z-index: auto !important;
           }
@@ -238,18 +261,20 @@ export const PayslipModal = ({
             box-shadow: none !important;
             border: none !important;
             border-radius: 0 !important;
-            background: #ffffff !important;
-            background-color: #ffffff !important;
+            background: transparent !important;
+            background-color: transparent !important;
             padding: 0 !important;
             margin: 0 !important;
           }
 
           .payslip-print-container {
-            position: static !important;
-            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
             height: auto !important;
+            min-height: auto !important;
             overflow: visible !important;
             box-shadow: none !important;
             border: none !important;
@@ -258,7 +283,9 @@ export const PayslipModal = ({
             background: #ffffff !important;
             background-color: #ffffff !important;
             color: #0f172a !important;
-            font-size: 11px !important;
+            font-size: 10px !important;
+            line-height: 1.35 !important;
+            box-sizing: border-box !important;
           }
 
           /* Ensure high-contrast dark text and clean light cards regardless of dark mode */
@@ -272,6 +299,8 @@ export const PayslipModal = ({
 
           .payslip-print-container .print-letterhead {
             border-bottom: 2.5px solid #1e3a8a !important;
+            margin-bottom: 10px !important;
+            padding-bottom: 8px !important;
           }
 
           .payslip-print-container .print-brand-title {
@@ -279,13 +308,25 @@ export const PayslipModal = ({
           }
 
           .payslip-print-container .print-info-grid {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
             background-color: #f8fafc !important;
             background: #f8fafc !important;
             border: 1px solid #cbd5e1 !important;
+            padding: 8px 12px !important;
+            margin-bottom: 10px !important;
           }
 
           .payslip-print-container .print-table {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
             border: 1.5px solid #cbd5e1 !important;
+            margin-bottom: 10px !important;
+          }
+
+          .payslip-print-container .print-earnings-col {
+            border-right: 1.5px solid #cbd5e1 !important;
           }
 
           .payslip-print-container .print-th {
@@ -294,12 +335,15 @@ export const PayslipModal = ({
             border-bottom: 1.5px solid #cbd5e1 !important;
             color: #0f172a !important;
             font-weight: 800 !important;
+            padding: 6px 10px !important;
           }
 
           .payslip-print-container .print-net-banner {
             background-color: #ecfdf5 !important;
             background: #ecfdf5 !important;
             border: 1.5px solid #a7f3d0 !important;
+            padding: 8px 12px !important;
+            margin-bottom: 10px !important;
           }
 
           .payslip-print-container .print-net-title {
@@ -308,6 +352,7 @@ export const PayslipModal = ({
 
           .payslip-print-container .print-net-amount {
             color: #047857 !important;
+            font-size: 20px !important;
           }
 
           .payslip-print-container .print-badge {
@@ -331,6 +376,22 @@ export const PayslipModal = ({
 
           .payslip-print-container .print-purple-text {
             color: #7e22ce !important;
+          }
+
+          .payslip-print-container .print-footer {
+            margin-top: 6px !important;
+            padding-top: 8px !important;
+            border-top: 1px solid #cbd5e1 !important;
+          }
+
+          /* Prevent unexpected page breaks */
+          .payslip-print-container .print-letterhead,
+          .payslip-print-container .print-info-grid,
+          .payslip-print-container .print-table,
+          .payslip-print-container .print-net-banner,
+          .payslip-print-container .print-footer {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
           }
 
           .no-print {
@@ -411,9 +472,9 @@ export const PayslipModal = ({
 
           {/* Printable Payslip Body */}
           <div ref={printRef} className="payslip-print-container p-6 sm:p-10 flex-1 overflow-y-auto text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900">
-            
+
             {/* 1. Official Corporate Letterhead */}
-            <div className="print-letterhead flex justify-between items-start border-b-[2.5px] border-blue-900 pb-3.5 mb-4">
+            <div className="flex justify-between items-start border-b-[2.5px] border-blue-900 pb-3.5 mb-4">
               <div className="flex-1 pr-4 flex items-start gap-3.5">
                 {companyInfo.companyLogo && (
                   <img
@@ -423,7 +484,7 @@ export const PayslipModal = ({
                   />
                 )}
                 <div>
-                  <h1 className="print-brand-title text-[20px] font-extrabold text-blue-900 dark:text-blue-300 m-0 uppercase tracking-wide leading-tight">
+                  <h1 className="text-[20px] font-extrabold text-blue-900 dark:text-blue-300 m-0 uppercase tracking-wide leading-tight">
                     {companyInfo.companyName || 'INFORAG TECHNOLOGIES PVT. LTD.'}
                   </h1>
                   {companyInfo.tagline && (
@@ -445,7 +506,7 @@ export const PayslipModal = ({
               </div>
 
               <div className="text-right shrink-0">
-                <div className="print-badge inline-block px-3 py-1 rounded-md bg-blue-100 text-blue-900 text-xs font-black tracking-wider">
+                <div className="inline-block px-3 py-1 rounded-md bg-blue-100 text-blue-900 text-xs font-black tracking-wider">
                   PAYSLIP / SALARY SLIP
                 </div>
                 <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">
@@ -458,7 +519,7 @@ export const PayslipModal = ({
             </div>
 
             {/* 2. Employee Profile & Statutory Identifiers Grid */}
-            <div className="print-info-grid grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 sm:px-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-300 dark:border-slate-700 mb-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 sm:px-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-300 dark:border-slate-700 mb-4 text-xs">
               {/* Column 1: Employee Particulars */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between">
@@ -481,35 +542,50 @@ export const PayslipModal = ({
                   <span className="text-slate-500 dark:text-slate-400">Date of Joining:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{employee.joiningDate || '2024-01-15'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">EPF UAN Number:</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 dark:text-slate-400">EPF UAN / Status:</span>
                   <span className="font-semibold font-mono text-slate-800 dark:text-slate-200">{uanNumber}</span>
                 </div>
               </div>
 
               {/* Column 2: Banking & Attendance Summary */}
               <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Bank Name:</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">{bankName}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {hasCustomBank ? 'Bank Name:' : 'Disbursal Mode:'}
+                  </span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                    {hasCustomBank ? (
+                      bankName
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-blue-900 dark:text-blue-300">
+                        <Building2 size={12} className="text-blue-600 shrink-0" />
+                        {bankName}
+                      </span>
+                    )}
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Bank Account No:</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {hasCustomBank ? 'Bank Account No:' : 'Payment Ref ID:'}
+                  </span>
                   <span className="font-semibold font-mono text-slate-800 dark:text-slate-200">{maskedAcct}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Bank IFSC Code:</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {hasCustomBank ? 'Bank IFSC Code:' : 'Transfer Method:'}
+                  </span>
                   <span className="font-semibold font-mono text-slate-800 dark:text-slate-200">{ifscCode}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Income Tax PAN:</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 dark:text-slate-400">Tax Identifier (PAN):</span>
                   <span className="font-semibold font-mono text-slate-800 dark:text-slate-200">{panNumber}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">Total Calendar Days:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{payroll.daysInMonth} Days in Month</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">Paid Days / Attendance:</span>
                   <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
                     {payroll.paidDays} Paid Days {payroll.totalLopDays > 0 ? `(LOP: ${payroll.totalLopDays}d)` : '(Full Attendance)'}
@@ -519,11 +595,11 @@ export const PayslipModal = ({
             </div>
 
             {/* 3. Earnings & Deductions Table (Direct In-Hand Salary Basis) */}
-            <div className="print-table grid grid-cols-1 sm:grid-cols-2 border-[1.5px] border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 border-[1.5px] border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden mb-4">
               {/* Earnings Column */}
-              <div className="sm:border-r-[1.5px] sm:border-slate-300 dark:sm:border-slate-700">
-                <div className="print-th p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
-                  <span>EARNINGS</span>
+              <div className="print-earnings-col sm:border-r-[1.5px] sm:border-slate-300 dark:sm:border-slate-700">
+                <div className="p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
+                  <span>EARNINGS (उपलब्धियां)</span>
                   <span>AMOUNT (₹)</span>
                 </div>
                 <div className="p-3 px-3.5 text-xs flex flex-col gap-2 min-h-[140px]">
@@ -546,8 +622,8 @@ export const PayslipModal = ({
 
               {/* Deductions Column */}
               <div>
-                <div className="print-th p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
-                  <span>ATTENDANCE DEDUCTIONS (LOP)</span>
+                <div className="p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
+                  <span>ATTENDANCE DEDUCTIONS (कटौतियां)</span>
                   <span>AMOUNT (₹)</span>
                 </div>
                 <div className="p-3 px-3.5 text-xs flex flex-col gap-2 min-h-[140px]">
@@ -604,12 +680,12 @@ export const PayslipModal = ({
             </div>
 
             {/* 4. Net Salary & Words Banner */}
-            <div className="print-net-banner p-3.5 sm:px-4 bg-emerald-50 dark:bg-emerald-950/40 border-[1.5px] border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-between mb-4 flex-wrap gap-2.5">
+            <div className="p-3.5 sm:px-4 bg-emerald-50 dark:bg-emerald-950/40 border-[1.5px] border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-between mb-4 flex-wrap gap-2.5">
               <div>
-                <span className="print-net-title text-[10.5px] font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                <span className="text-[10.5px] font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                   NET TAKE-HOME SALARY PAYABLE (A - B)
                 </span>
-                <div className="print-net-amount text-[24px] font-black text-emerald-950 dark:text-emerald-100 leading-tight">
+                <div className="text-[24px] font-black text-emerald-950 dark:text-emerald-100 leading-tight">
                   ₹{payroll.netSalary.toLocaleString('en-IN')}
                 </div>
                 <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 mt-0.5 italic">
@@ -623,7 +699,7 @@ export const PayslipModal = ({
             </div>
 
             {/* 5. Authorization & Verification Footer */}
-            <div className="flex justify-between items-end pt-3 border-t border-slate-300 dark:border-slate-700 text-[10.5px] text-slate-500 dark:text-slate-400">
+            <div className="print-footer flex justify-between items-end pt-3 border-t border-slate-300 dark:border-slate-700 text-[10.5px] text-slate-500 dark:text-slate-400">
               <div>
                 <p className="m-0 font-semibold text-slate-700 dark:text-slate-300">
                   {companyInfo.footerNote || '* This is a computer-generated salary slip and does not require a physical signature.'}

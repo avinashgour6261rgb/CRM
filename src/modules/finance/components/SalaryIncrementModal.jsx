@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   TrendingUp,
@@ -19,14 +19,26 @@ import {
   FileText,
   ShieldCheck,
   Check,
-  CreditCard
+  CreditCard,
+  Clock
 } from 'lucide-react';
 import { useToast } from '../../../shared/context/ToastContext';
 import { useHR } from '../../hr/context/HRContext';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { calculateMonthlyPayroll } from '../../../shared/utils/payrollUtils';
 
-export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryData, onSalaryUpdated }) => {
+export const SalaryIncrementModal = ({
+  isOpen,
+  onClose,
+  employee,
+  currentSalaryData,
+  onSalaryUpdated,
+  selectedMonth,
+  attendance = [],
+  leaves = [],
+  holidays = []
+}) => {
   const { addToast } = useToast();
   const { updateEmployee, currentUser } = useHR();
 
@@ -112,6 +124,26 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
   const netInHand = newGrossMonthly;
 
   const newAnnualCTC = newGrossMonthly * 12;
+
+  // Calculate projected monthly payout based on this employee's actual attendance records
+  const activeMonthLabel = selectedMonth || `${new Date().toLocaleString('en-US', { month: 'long' })} ${new Date().getFullYear()}`;
+  const projectedPayroll = useMemo(() => {
+    if (!employee || !newGrossMonthly) return null;
+    return calculateMonthlyPayroll({
+      employee,
+      selectedMonth: activeMonthLabel,
+      attendance: attendance || [],
+      leaves: leaves || [],
+      holidays: holidays || [],
+      companySettings: companyInfo,
+      salaryOverride: {
+        monthlyGross: newGrossMonthly,
+        inHandSalary: newGrossMonthly,
+        netSalary: newGrossMonthly,
+        basic: newGrossMonthly
+      }
+    });
+  }, [employee, newGrossMonthly, activeMonthLabel, attendance, leaves, holidays, companyInfo]);
 
   const handleSubmitRevision = (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -538,6 +570,53 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                 <span className="font-extrabold text-emerald-700 dark:text-emerald-400 text-[14px]">₹{netInHand.toLocaleString('en-IN')}</span>
               </div>
             </div>
+
+            {/* Attendance-Driven Payout Impact for Selected Month */}
+            {projectedPayroll && (
+              <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-900/60 flex flex-col gap-2">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <span className="text-[12px] font-extrabold text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
+                    <Calendar size={14} className="text-blue-600 dark:text-blue-400" />
+                    Attendance-Based Payout ({activeMonthLabel})
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    {projectedPayroll.daysInMonth} Calendar Days • ₹{projectedPayroll.dailyRate.toLocaleString('en-IN')}/day
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="bg-white dark:bg-slate-800 p-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block">Agreed In-Hand</span>
+                    <span className="text-xs font-black text-slate-900 dark:text-slate-100">
+                      ₹{newGrossMonthly.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 p-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block">
+                      Attendance ({projectedPayroll.totalLopDays > 0 ? `${projectedPayroll.totalLopDays}d LOP` : 'Full Attendance'})
+                    </span>
+                    <span className={`text-xs font-black ${projectedPayroll.totalLopDeduction > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {projectedPayroll.totalLopDeduction > 0 ? `-₹${projectedPayroll.totalLopDeduction.toLocaleString('en-IN')}` : '₹0'}
+                    </span>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 p-2 px-3 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/30">
+                    <span className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold block">Net Payable This Month</span>
+                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">
+                      ₹{projectedPayroll.netSalary.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[10.5px] text-slate-500 dark:text-slate-400 flex items-center justify-between flex-wrap gap-1">
+                  <span>
+                    ✔️ <strong>{projectedPayroll.paidDays} Paid Days</strong> ({projectedPayroll.presentDays} Present, {projectedPayroll.halfDays} Half-Day, {projectedPayroll.absentDays} Absent, {projectedPayroll.unpaidLeaveDays} Unpaid Leave).
+                  </span>
+                  <span className="font-medium text-slate-600 dark:text-slate-300">
+                    Half-Day Rate: ₹{projectedPayroll.halfDayRate}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Step 6: Reason & Effective Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
