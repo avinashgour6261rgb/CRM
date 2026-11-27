@@ -118,6 +118,20 @@ export const TasksPage = () => {
     return (aId && uIds.includes(aId)) || (aCode && uIds.includes(aCode)) || (aName && aName === uName);
   }, []);
 
+  const isLeftoverTask = (t, todayStr, nowMs = Date.now()) =>
+    t.status !== 'completed' &&
+    !t.isUntimed &&
+    !t.hasNoDueDate &&
+    Boolean(t.dueDate && t.dueDate < todayStr) &&
+    !(t.snoozed && t.remindAt && Number(t.remindAt) > nowMs);
+
+  const isFutureTask = (t, todayStr, nowMs = Date.now()) =>
+    t.status !== 'completed' && (
+      Boolean(t.startDate && t.startDate > todayStr) ||
+      Boolean(t.dueDate && t.dueDate > todayStr && !t.timerRunning && t.status !== 'in_progress') ||
+      Boolean(t.snoozed && t.remindAt && Number(t.remindAt) > nowMs)
+    );
+
   // Filtered & strictly scoped tasks with personal task privacy isolation
   const displayTasks = React.useMemo(() => {
     let list = tasks || [];
@@ -186,9 +200,9 @@ export const TasksPage = () => {
     } else if (statusMode === 'completed') {
       list = list.filter(t => t.status === 'completed');
     } else if (statusMode === 'leftover') {
-      list = list.filter(t => t.status !== 'completed' && !t.isUntimed && !t.hasNoDueDate && t.dueDate && t.dueDate < todayStr && !(t.snoozed && t.remindAt && Number(t.remindAt) > Date.now()));
+      list = list.filter(t => isLeftoverTask(t, todayStr));
     } else if (statusMode === 'future') {
-      list = list.filter(t => t.status !== 'completed' && ((t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr && !t.timerRunning && t.status !== 'in_progress') || (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now())));
+      list = list.filter(t => isFutureTask(t, todayStr));
     } else if (taskFilter.status && taskFilter.status !== 'all') {
       list = list.filter(t => matchesFilter(t.status, taskFilter.status));
     } else if (taskFilter.hideCompleted) {
@@ -214,19 +228,18 @@ export const TasksPage = () => {
   // Compute leftover & future counts
   const todayStr = getLocalDateString();
   const leftoverCount = React.useMemo(() => {
+    const nowMs = Date.now();
     return (tasks || []).filter(t => {
-      if (t.status === 'completed' || t.isUntimed || t.hasNoDueDate || !t.dueDate || t.dueDate >= todayStr) return false;
-      if (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now()) return false;
+      if (!isLeftoverTask(t, todayStr, nowMs)) return false;
       if (!canViewAllTasks && currentUser) return isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id;
       return true;
     }).length;
   }, [tasks, todayStr, canViewAllTasks, currentUser, isTaskAssignedToUser]);
 
   const futureCount = React.useMemo(() => {
+    const nowMs = Date.now();
     return (tasks || []).filter(t => {
-      if (t.status === 'completed') return false;
-      const isFuture = (t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr) || (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now());
-      if (!isFuture) return false;
+      if (!isFutureTask(t, todayStr, nowMs)) return false;
       if (!canViewAllTasks && currentUser) return isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id;
       return true;
     }).length;
