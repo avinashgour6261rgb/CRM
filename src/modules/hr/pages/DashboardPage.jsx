@@ -61,6 +61,7 @@ import { EmployeeDirectoryModal } from '../components/employees/EmployeeDirector
 import { SnoozeTaskModal } from '../../work/components/tasks/SnoozeTaskModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
 import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
+import { SubmitResignationModal } from '../components/resignations/SubmitResignationModal';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 import { ShiftClockCard } from '../components/dashboard/ShiftClockCard';
 import { ActiveTaskTimerCard } from '../../work/components/dashboard/ActiveTaskTimerCard';
@@ -134,6 +135,7 @@ export const DashboardPage = () => {
   const [dashboardTaskScope, setDashboardTaskScope] = useState('assigned_to_me'); // 'assigned_to_me' | 'delegated' | 'all'
   const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
   const [cancellingLeaveTarget, setCancellingLeaveTarget] = useState(null);
+  const [isResignationModalOpen, setIsResignationModalOpen] = useState(false);
 
   // Role & Scope Detection
   const userRole = authRole || getUserRole(currentUser);
@@ -2211,6 +2213,18 @@ export const DashboardPage = () => {
     return isLeaveApplicant(l, currentUser);
   });
 
+  // Employee's own active or decided resignation
+  const myResignation = React.useMemo(() => {
+    const myId = String(effectiveTargetUser?._id || currentUser?._id || currentUser?.id || '');
+    const myCode = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '').trim().toUpperCase();
+    return (resignations || []).find(r => {
+      if (!r) return false;
+      const rId = String(r.employeeId || '');
+      const rCode = String(r.employeeCode || '').trim().toUpperCase();
+      return (myId && rId === myId) || (myCode && rCode === myCode);
+    });
+  }, [resignations, effectiveTargetUser, currentUser]);
+
   // Active Top Alerts for upper dashboard (undismissed by cross button)
   const activeTopLeaveRequests = React.useMemo(() => {
     return (pendingLeaveRequestsForMe || []).filter(l => !dismissedTopAlerts.includes(String(l._id)));
@@ -2684,6 +2698,77 @@ export const DashboardPage = () => {
             );
           })()}
         </div>
+      )}
+
+      {/* ── 📬 REAL-TIME RESIGNATION DECISION ALERT BANNER ── */}
+      {myResignation && (
+        myResignation.status === 'approved' && !myResignation.isRelieved ? (
+          <div className="rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 bg-emerald-50 dark:bg-emerald-950/40 border-[1.5px] border-emerald-300 dark:border-emerald-800 shadow-[0_4px_12px_rgba(16,185,129,0.12)]">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-[9px] text-white flex items-center justify-center shrink-0 bg-emerald-500 shadow-xs">
+                <CheckCircle2 size={20} />
+              </div>
+              <div>
+                <div className="text-[13.5px] font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+                  <span>🎉 Resignation Request Accepted & Approved!</span>
+                  <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-300">
+                    Serving Notice
+                  </span>
+                </div>
+                <div className="text-xs mt-0.5 text-emerald-700 dark:text-emerald-300">
+                  <span>Approved by <strong>{myResignation.reviewedByName || 'HR / Executive Leadership'}</strong></span>
+                  <span className="mx-1.5 opacity-60">•</span>
+                  <span>Approved Last Working Day: <strong>{myResignation.approvedLastWorkingDay || myResignation.proposedLastWorkingDay}</strong></span>
+                  {myResignation.reviewRemarks && (
+                    <>
+                      <span className="mx-1.5 opacity-60">•</span>
+                      <span className="italic">"{myResignation.reviewRemarks}"</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsResignationModalOpen(true)}
+                className="text-white border-none py-1.5 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-colors bg-emerald-600 hover:bg-emerald-700 shadow-xs"
+              >
+                View Separation Details
+              </button>
+            </div>
+          </div>
+        ) : myResignation.status === 'pending' ? (
+          <div className="rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 bg-amber-50 dark:bg-amber-950/40 border-[1.5px] border-amber-300 dark:border-amber-800 shadow-[0_4px_12px_rgba(245,158,11,0.12)]">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-[9px] text-white flex items-center justify-center shrink-0 bg-amber-500 shadow-xs">
+                <Clock size={20} />
+              </div>
+              <div>
+                <div className="text-[13.5px] font-bold text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                  <span>⏳ Resignation Request Under Review</span>
+                  <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 dark:bg-amber-900 dark:text-amber-300">
+                    Pending
+                  </span>
+                </div>
+                <div className="text-xs mt-0.5 text-amber-700 dark:text-amber-300">
+                  <span>Submitted on <strong>{myResignation.submissionDate}</strong></span>
+                  <span className="mx-1.5 opacity-60">•</span>
+                  <span>Proposed Last Working Day: <strong>{myResignation.proposedLastWorkingDay}</strong></span>
+                  <span className="mx-1.5 opacity-60">•</span>
+                  <span>Awaiting Executive / HR Clearance</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsResignationModalOpen(true)}
+                className="text-white border-none py-1.5 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-colors bg-amber-600 hover:bg-amber-700 shadow-xs"
+              >
+                View Status
+              </button>
+            </div>
+          </div>
+        ) : null
       )}
 
       {/* ── 📬 REAL-TIME LEAVE DECISION ALERT BANNER ── */}
@@ -4127,6 +4212,13 @@ export const DashboardPage = () => {
           }
         }}
       />
+
+      {isResignationModalOpen && (
+        <SubmitResignationModal
+          isOpen={isResignationModalOpen}
+          onClose={() => setIsResignationModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

@@ -78,6 +78,15 @@ export const ResignationsListPanel = () => {
   const approvedNoticeCount = scopedResignations.filter(r => r.status === 'approved' && !r.isRelieved).length;
   const relievedCount = scopedResignations.filter(r => r.isRelieved).length;
 
+  const myActiveResignation = useMemo(() => {
+    const myId = String(currentUser?._id || currentUser?.id || '');
+    const myCode = String(currentUser?.employeeCode || '').toUpperCase();
+    return (resignations || []).find(r =>
+      (r.employeeId && String(r.employeeId) === myId) ||
+      (r.employeeCode && String(r.employeeCode).toUpperCase() === myCode)
+    );
+  }, [resignations, currentUser]);
+
   return (
     <div className="flex flex-col gap-4">
       {/* Overview Stat Cards */}
@@ -158,10 +167,28 @@ export const ResignationsListPanel = () => {
 
         <button
           onClick={() => setIsSubmitModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shadow-xs"
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold transition-colors shadow-xs ${
+            myActiveResignation?.status === 'approved' && !myActiveResignation?.isRelieved
+              ? 'bg-emerald-600 hover:bg-emerald-700'
+              : myActiveResignation?.status === 'pending'
+              ? 'bg-amber-600 hover:bg-amber-700'
+              : 'bg-rose-600 hover:bg-rose-700'
+          }`}
         >
-          <Send size={13} />
-          <span>Submit Resignation</span>
+          {myActiveResignation?.status === 'approved' && !myActiveResignation?.isRelieved ? (
+            <CheckCircle2 size={13} />
+          ) : myActiveResignation?.status === 'pending' ? (
+            <Clock size={13} />
+          ) : (
+            <Send size={13} />
+          )}
+          <span>
+            {myActiveResignation?.status === 'approved' && !myActiveResignation?.isRelieved
+              ? 'Resignation Status (Approved)'
+              : myActiveResignation?.status === 'pending'
+              ? 'Resignation Status (Pending)'
+              : 'Submit Resignation'}
+          </span>
         </button>
       </div>
 

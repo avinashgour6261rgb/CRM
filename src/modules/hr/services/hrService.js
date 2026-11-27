@@ -1913,7 +1913,7 @@ export const hrService = {
       body: JSON.stringify(reviewData)
     }, async () => {
       const resignations = getCollection(KEYS.RESIGNATIONS) || [];
-      const idx = resignations.findIndex(r => r.id === resignationId);
+      const idx = resignations.findIndex(r => String(r.id) === String(resignationId) || String(r._id) === String(resignationId));
       if (idx >= 0) {
         resignations[idx] = {
           ...resignations[idx],
@@ -1928,13 +1928,15 @@ export const hrService = {
 
     try {
       const resignations = getCollection(KEYS.RESIGNATIONS) || [];
-      const idx = resignations.findIndex(r => r.id === resignationId);
+      const idx = resignations.findIndex(r => String(r.id) === String(resignationId) || String(r._id) === String(resignationId));
       if (idx >= 0) {
+        const backendRecord = (res && res.data && typeof res.data === 'object') ? res.data : {};
         resignations[idx] = {
           ...resignations[idx],
           ...reviewData,
-          status: reviewData.status || resignations[idx].status,
-          isRelieved: reviewData.isRelieved || resignations[idx].isRelieved
+          ...backendRecord,
+          status: reviewData.status || backendRecord.status || resignations[idx].status,
+          isRelieved: reviewData.isRelieved || backendRecord.isRelieved || resignations[idx].isRelieved
         };
         saveCollection(KEYS.RESIGNATIONS, resignations);
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.RESIGNATIONS } }));

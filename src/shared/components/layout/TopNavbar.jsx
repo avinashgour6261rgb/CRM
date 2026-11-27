@@ -21,6 +21,7 @@ import {
   Palmtree,
   CheckCircle2,
   AlertCircle,
+  UserCheck,
   Key,
   Sun,
   Moon,
@@ -245,7 +246,20 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
   const pendingResignationsList = canSeeResignationAlerts
     ? (resignations || []).filter(r => r?.status === 'pending')
     : [];
-  const totalNotifications = pendingResignationsList.length + myPendingTasks.length + openTicketsList.length + todayBirthdaysList.length + upcomingBirthdaysList.length + todayAnnivList.length + upcomingAnnivList.length;
+
+  const myResignation = useMemo(() => {
+    const myId = String(currentUser?._id || currentUser?.id || '');
+    const myCode = String(currentUser?.employeeCode || '').trim().toUpperCase();
+    return (resignations || []).find(r => {
+      if (!r) return false;
+      const rId = String(r.employeeId || '');
+      const rCode = String(r.employeeCode || '').trim().toUpperCase();
+      return (myId && rId === myId) || (myCode && rCode === myCode);
+    });
+  }, [resignations, currentUser]);
+  const hasMyResignationAlert = Boolean(myResignation && (myResignation.status === 'approved' || myResignation.status === 'rejected'));
+
+  const totalNotifications = pendingResignationsList.length + (hasMyResignationAlert ? 1 : 0) + myPendingTasks.length + openTicketsList.length + todayBirthdaysList.length + upcomingBirthdaysList.length + todayAnnivList.length + upcomingAnnivList.length;
 
 
   // Search Results
@@ -572,6 +586,22 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
                     </div>
                   )}
 
+                  {myResignation && (myResignation.status === 'approved' || myResignation.status === 'rejected') && (
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                      <div className={`text-[11px] font-bold mb-1 ${myResignation.status === 'approved' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {myResignation.status === 'approved' ? 'RESIGNATION APPROVED' : 'RESIGNATION STATUS UPDATE'}
+                      </div>
+                      <div
+                        onClick={() => { setShowNotifications(false); setIsResignationOpen(true); }}
+                        className="p-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        {myResignation.status === 'approved'
+                          ? `🎉 Your resignation is approved. LWD: ${myResignation.approvedLastWorkingDay || myResignation.proposedLastWorkingDay}`
+                          : `Resignation request ${myResignation.status}. Click to view details.`}
+                      </div>
+                    </div>
+                  )}
+
                   {openTicketsList.length > 0 && (
                     <div className="p-2">
                       <div className="text-[11px] font-bold text-amber-600 mb-1">
@@ -772,10 +802,49 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
                     setShowProfileMenu(false);
                     setIsResignationOpen(true);
                   }}
-                  className="flex items-center gap-2 py-2 px-2.5 rounded-md border-none bg-transparent text-rose-600 dark:text-rose-400 text-xs font-medium cursor-pointer text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  className={`flex items-center justify-between w-full py-2 px-2.5 rounded-md border-none bg-transparent text-xs font-medium cursor-pointer text-left transition-colors ${
+                    myResignation?.status === 'approved' && !myResignation?.isRelieved
+                      ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                      : myResignation?.status === 'pending'
+                      ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                      : myResignation?.isRelieved
+                      ? 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
+                      : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                  }`}
                 >
-                  <FileText size={14} className="text-rose-500" />
-                  <span>Submit Resignation</span>
+                  <div className="flex items-center gap-2">
+                    {myResignation?.status === 'approved' && !myResignation?.isRelieved ? (
+                      <CheckCircle2 size={14} className="text-emerald-500" />
+                    ) : myResignation?.status === 'pending' ? (
+                      <Clock size={14} className="text-amber-500" />
+                    ) : myResignation?.isRelieved ? (
+                      <UserCheck size={14} className="text-purple-500" />
+                    ) : (
+                      <FileText size={14} className="text-rose-500" />
+                    )}
+                    <span>
+                      {myResignation?.status === 'approved' && !myResignation?.isRelieved
+                        ? 'Resignation Status'
+                        : myResignation?.status === 'pending'
+                        ? 'Resignation Status'
+                        : myResignation?.isRelieved
+                        ? 'Resignation Status'
+                        : 'Submit Resignation'}
+                    </span>
+                  </div>
+                  {myResignation && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+                      myResignation.isRelieved
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300'
+                        : myResignation.status === 'approved'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : myResignation.status === 'rejected'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                    }`}>
+                      {myResignation.isRelieved ? 'Relieved' : myResignation.status === 'approved' ? 'Approved' : myResignation.status}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
