@@ -1019,6 +1019,11 @@ export const LiveVoiceHuddleBar = ({
   const partnerIsOnBreak = Boolean(partnerShiftState?.isOnBreak);
   const canICall = isClockedIn && !isOnBreak;
 
+  // Hide idle bar when no call or channel huddle is active (header Huddle/Call button handles starting)
+  if (callState === 'idle' && !(isChannel && huddleMembers.length > 0)) {
+    return null;
+  }
+
   return (
     <div className="shrink-0 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-[#0c1427]/90 text-xs transition-all">
       {/* ── 1. Outgoing Ringing State (Calling Partner) ── */}

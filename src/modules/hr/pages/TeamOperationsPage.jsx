@@ -446,7 +446,7 @@ export const TeamOperationsPage = () => {
     const hasTodayStoredClockIn = Boolean(isTodaySession && (storedLogin || Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) > 0));
     const hasTodayStoredClockOut = Boolean(isTodaySession && (storedClockOut || localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true'));
 
-    const isExplicitlyStoredClockedOut = isTodaySession && (
+    const isExplicitlyStoredClockedOut = isTodaySession && (hasTodayStoredClockIn || hasTodayAttClockIn) && (
       localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'false' ||
       localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true' ||
       (empId && (localStorage.getItem(`ems_timer_${empId}_is_clocked_in`) === 'false' || localStorage.getItem(`ems_timer_${empId}_had_clocked_out`) === 'true')) ||
@@ -485,12 +485,14 @@ export const TeamOperationsPage = () => {
           (!isExplicitlyStoredClockedOut && isTodaySession && storedClockedIn && hasTodayStoredClockIn)));
 
     const isClockedOut = isSelf
-      ? Boolean(!selfIsClockedIn && (selfClockOutTime || hasTodayAttClockOut || isExplicitlyStoredClockedOut))
-      : (telem ? Boolean(!telem.isClockedIn && telem.clockOutTime) : (!isClockedIn && (
-        isExplicitlyStoredClockedOut ||
-        (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
-        (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
-      )));
+      ? Boolean(!selfIsClockedIn && ((selfClockOutTime && selfClockOutTime !== '--') || hasTodayAttClockOut || isExplicitlyStoredClockedOut))
+      : (telem
+        ? Boolean(!telem.isClockedIn && ((telem.clockOutTime && telem.clockOutTime !== '--') || (hasTodayAttClockIn && hasTodayAttClockOut)))
+        : (!isClockedIn && (
+          isExplicitlyStoredClockedOut ||
+          (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
+          (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
+        )));
 
     const breakEndedAt = Number(localStorage.getItem(`ems_timer_${empKey}_break_ended_at`)) || (empId ? Number(localStorage.getItem(`ems_timer_${empId}_break_ended_at`)) : 0) || 0;
     const telemBreakStart = Number(telem?.breakStartTimestamp) || 0;

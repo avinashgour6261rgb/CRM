@@ -672,7 +672,7 @@ export const DashboardPage = () => {
     const hasTodayStoredClockIn = Boolean(hasTodayStoredSession && (storedLogin || rawClockInTs > 0));
     const hasTodayStoredClockOut = Boolean(hasTodayStoredSession && (storedClockOut || readTimerKey('had_clocked_out') === 'true' || readTimerKey('had_clocked_out') === true));
 
-    const isExplicitlyStoredClockedOut = hasTodayStoredSession && (
+    const isExplicitlyStoredClockedOut = hasTodayStoredSession && (hasTodayStoredClockIn || hasTodayAttClockIn) && (
       readTimerKey('is_clocked_in') === 'false' ||
       readTimerKey('had_clocked_out') === 'true' ||
       Boolean(storedClockOut)
@@ -705,11 +705,13 @@ export const DashboardPage = () => {
       : (Boolean(hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent') ||
         (!isStaleFromPreviousDay && !isExplicitlyStoredClockedOut && hasTodayStoredSession && storedClockedIn && hasTodayStoredClockIn));
 
-    const isClockedOut = telem ? Boolean(!telem.isClockedIn && telem.clockOutTime) : (!isClockedIn && !isStaleFromPreviousDay && (
-      isExplicitlyStoredClockedOut ||
-      (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
-      (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
-    ));
+    const isClockedOut = telem
+      ? Boolean(!telem.isClockedIn && ((telem.clockOutTime && telem.clockOutTime !== '--') || (hasTodayAttClockIn && hasTodayAttClockOut)))
+      : (!isClockedIn && !isStaleFromPreviousDay && (
+        isExplicitlyStoredClockedOut ||
+        (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
+        (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
+      ));
 
     const isSelf = Boolean(
       emp && currentUser && (
