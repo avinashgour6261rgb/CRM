@@ -3506,7 +3506,7 @@ export const DashboardPage = () => {
               </thead>
               <tbody>
                 {displayTickets.length > 0 ? (
-                  displayTickets.slice(0, 5).map(tkt => (
+                  displayTickets.slice(0, 2).map(tkt => (
                     <tr
                       key={tkt?._id || Math.random()}
                       onClick={() => setSelectedTicket(tkt)}
@@ -3551,6 +3551,17 @@ export const DashboardPage = () => {
               </tbody>
             </table>
           </div>
+
+          {displayTickets.length > 2 && (
+            <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 text-center">
+              <button
+                onClick={() => navigate('/tickets')}
+                className="bg-transparent border-none text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+              >
+                Showing 2 of {displayTickets.length} tickets • All Tickets →
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Schedule & Events Widget (Paired with Tickets) */}
@@ -3569,7 +3580,7 @@ export const DashboardPage = () => {
 
           <div className="flex flex-col gap-1.5">
             {upcomingScheduleEvents.length > 0 ? (
-              upcomingScheduleEvents.map(ev => (
+              upcomingScheduleEvents.slice(0, 2).map(ev => (
                 <div
                   key={ev?._id || Math.random()}
                   onClick={() => navigate('/calendar')}
@@ -3590,6 +3601,16 @@ export const DashboardPage = () => {
             ) : (
               <div className="text-xs text-slate-400 dark:text-slate-500 text-center py-3">
                 No upcoming events this month
+              </div>
+            )}
+            {upcomingScheduleEvents.length > 2 && (
+              <div className="pt-1 border-t border-slate-100 dark:border-slate-800 text-center">
+                <button
+                  onClick={() => navigate('/calendar')}
+                  className="bg-transparent border-none text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                >
+                  Showing 2 of {upcomingScheduleEvents.length} events • Full Calendar →
+                </button>
               </div>
             )}
           </div>
@@ -3639,7 +3660,7 @@ export const DashboardPage = () => {
           {/* List of items with exact Date and Countdown Day Count */}
           <div className="flex flex-col gap-2">
             {celebrationTab === 'birthdays' ? (
-              (computedBirthdays && computedBirthdays.length > 0 ? computedBirthdays : birthdays || []).slice(0, 3).map(bday => {
+              (computedBirthdays && computedBirthdays.length > 0 ? computedBirthdays : birthdays || []).slice(0, 2).map(bday => {
                 const diffDays = bday?.diffDays ?? 0;
                 return (
                   <div
@@ -3678,7 +3699,7 @@ export const DashboardPage = () => {
                 );
               })
             ) : (
-              (computedAnniversaries || []).slice(0, 3).map(anniv => {
+              (computedAnniversaries || []).slice(0, 2).map(anniv => {
                 const diffDays = anniv?.diffDays ?? 0;
                 return (
                   <div
@@ -3729,6 +3750,28 @@ export const DashboardPage = () => {
                 🌟 No work anniversaries scheduled
               </div>
             )}
+
+            {celebrationTab === 'birthdays' && (computedBirthdays || birthdays || []).length > 2 && (
+              <div className="pt-1 border-t border-slate-100 dark:border-slate-800 text-center">
+                <button
+                  onClick={() => navigate('/calendar')}
+                  className="bg-transparent border-none text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                >
+                  Showing 2 of {(computedBirthdays || birthdays || []).length} birthdays • View All →
+                </button>
+              </div>
+            )}
+
+            {celebrationTab === 'anniversaries' && (computedAnniversaries || []).length > 2 && (
+              <div className="pt-1 border-t border-slate-100 dark:border-slate-800 text-center">
+                <button
+                  onClick={() => navigate('/calendar')}
+                  className="bg-transparent border-none text-[11px] font-semibold text-purple-700 dark:text-purple-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                >
+                  Showing 2 of {(computedAnniversaries || []).length} anniversaries • View All →
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -3747,25 +3790,42 @@ export const DashboardPage = () => {
           </div>
 
           <div className="flex flex-col gap-2">
-            {(appreciations || []).slice(0, 2).map(app => (
-              <div
-                key={app?._id || Math.random()}
-                onClick={() => navigate('/appreciation')}
-                className="p-2 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/80 flex items-start gap-2 cursor-pointer hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors"
-              >
-                <div className="w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                  <Award size={15} />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-900 dark:text-white">
-                    {app?.givenToName} — <span className="text-amber-600 dark:text-amber-400">{app?.awardName}</span>
+            {(appreciations || []).length > 0 ? (
+              (appreciations || []).slice(0, 2).map(app => (
+                <div
+                  key={app?._id || Math.random()}
+                  onClick={() => navigate('/appreciation')}
+                  className="p-2 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/80 flex items-start gap-2 cursor-pointer hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <Award size={15} />
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    "{app?.appreciationNote}"
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      {app?.givenToName} — <span className="text-amber-600 dark:text-amber-400">{app?.awardName}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                      "{app?.appreciationNote}"
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-4 text-slate-400 dark:text-slate-500 text-xs">
+                No appreciations yet this month
               </div>
-            ))}
+            )}
+
+            {(appreciations || []).length > 2 && (
+              <div className="pt-1 border-t border-slate-100 dark:border-slate-800 text-center">
+                <button
+                  onClick={() => navigate('/appreciation')}
+                  className="bg-transparent border-none text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                >
+                  Showing 2 of {(appreciations || []).length} appreciations • View All →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -3780,12 +3840,20 @@ export const DashboardPage = () => {
             <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
               🏖️ On Leave Today
             </h3>
-            <button
-              onClick={() => setIsApplyLeaveOpen(true)}
-              className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-700 py-1 px-2 rounded text-[11px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-            >
-              <Palmtree size={12} /> Apply
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setIsApplyLeaveOpen(true)}
+                className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-700 py-1 px-2 rounded text-[11px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                <Palmtree size={12} /> Apply
+              </button>
+              <button
+                onClick={() => navigate('/leaves')}
+                className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
+              >
+                All →
+              </button>
+            </div>
           </div>
 
           {/* Resignation Requests Queue for Admin / HR */}
@@ -3869,7 +3937,7 @@ export const DashboardPage = () => {
                 </span>
               </div>
               <div className="flex flex-col gap-1.5">
-                {myDecidedLeaves.map(l => (
+                {myDecidedLeaves.slice(0, 2).map(l => (
                   <div key={l._id} className={`p-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border ${l.status === 'approved' ? 'border-green-300 dark:border-green-800' : 'border-red-300 dark:border-red-800'}`}>
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[11.5px] font-bold text-slate-900 dark:text-white">
@@ -3960,7 +4028,7 @@ export const DashboardPage = () => {
 
           {employeesOnLeave.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              {employeesOnLeave.map(l => (
+              {employeesOnLeave.slice(0, 2).map(l => (
                 <div key={l._id} className="flex items-center gap-1.5 p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-md">
                   <img src={l.employeeAvatar} alt={l.employeeName} className="w-6 h-6 rounded-full" />
                   <div>
@@ -3969,6 +4037,16 @@ export const DashboardPage = () => {
                   </div>
                 </div>
               ))}
+              {employeesOnLeave.length > 2 && (
+                <div className="pt-1 text-center border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={() => navigate('/leaves')}
+                    className="bg-transparent border-none text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                  >
+                    Showing 2 of {employeesOnLeave.length} on leave today • All Leaves →
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             pendingResignationsForMe.length === 0 && pendingLeaveRequestsForMe.length === 0 && myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length === 0 && (
@@ -4009,42 +4087,55 @@ export const DashboardPage = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2.5 max-h-[430px] overflow-y-auto pr-0.5">
+          <div className="flex flex-col gap-2.5">
             {(notices || []).length > 0 ? (
-              (notices || []).map(not => (
-                <div
-                  key={not?._id || not?.id || Math.random()}
-                  onClick={() => setSelectedNotice(not)}
-                  className="p-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer flex flex-col gap-1.5 transition-all duration-150 hover:bg-white dark:hover:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xs"
-                >
-                  <div className="flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not?.isImportant ? 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60' : 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/60'}`}>
-                        {not?.category || 'Announcement'}
-                      </span>
-                      {not?.isImportant && (
-                        <span className="text-[9.5px] font-extrabold text-red-600 dark:text-red-400">
-                          ⚡ Important
+              <>
+                {(notices || []).slice(0, 2).map(not => (
+                  <div
+                    key={not?._id || not?.id || Math.random()}
+                    onClick={() => setSelectedNotice(not)}
+                    className="p-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer flex flex-col gap-1.5 transition-all duration-150 hover:bg-white dark:hover:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xs"
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not?.isImportant ? 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60' : 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/60'}`}>
+                          {not?.category || 'Announcement'}
                         </span>
-                      )}
+                        {not?.isImportant && (
+                          <span className="text-[9.5px] font-extrabold text-red-600 dark:text-red-400">
+                            ⚡ Important
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10.5px] text-slate-400 dark:text-slate-500">{not?.date}</span>
                     </div>
-                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500">{not?.date}</span>
-                  </div>
 
-                  <div className="text-[12.5px] font-bold text-slate-900 dark:text-white leading-snug">
-                    {not?.title}
-                  </div>
+                    <div className="text-[12.5px] font-bold text-slate-900 dark:text-white leading-snug">
+                      {not?.title}
+                    </div>
 
-                  <div className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-normal">
-                    {not?.shortDescription || not?.description}
-                  </div>
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-normal line-clamp-2">
+                      {not?.shortDescription || not?.description}
+                    </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/60 text-[11px] text-slate-500 dark:text-slate-400">
-                    <span>By: <strong>{not?.postedBy || 'HR Admin'}</strong></span>
-                    <span className="text-[11.5px] text-sky-600 dark:text-sky-400 font-semibold">View Details →</span>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/60 text-[11px] text-slate-500 dark:text-slate-400">
+                      <span>By: <strong>{not?.postedBy || 'HR Admin'}</strong></span>
+                      <span className="text-[11.5px] text-sky-600 dark:text-sky-400 font-semibold">View Details →</span>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {(notices || []).length > 2 && (
+                  <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 text-center">
+                    <button
+                      onClick={() => navigate('/notice-board')}
+                      className="bg-transparent border-none text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                    >
+                      Showing 2 of {(notices || []).length} notices • All Notices →
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-7 text-slate-400">
                 <Bell size={24} className="mx-auto mb-1.5 text-slate-300" />
