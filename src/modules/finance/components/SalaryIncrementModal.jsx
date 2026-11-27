@@ -83,8 +83,6 @@ export const SalaryIncrementModal = ({
     }
   }, [employee, isOpen, oldGrossMonthly]);
 
-  if (!isOpen || !employee) return null;
-
   // Calculate new salary & delta
   let newGrossMonthly = oldGrossMonthly;
   let diffAmount = 0;
@@ -238,6 +236,8 @@ export const SalaryIncrementModal = ({
   const handlePrintLetter = () => {
     window.print();
   };
+
+  if (!isOpen || !employee) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
