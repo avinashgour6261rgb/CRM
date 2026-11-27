@@ -161,9 +161,170 @@ export const PayslipModal = ({
     const prevTitle = document.title;
     const cleanCompany = (companyInfo.shortName || companyInfo.companyName || 'Inforag').replace(/[^\w\s-]/g, '').trim();
     const cleanEmp = (employee.name || 'Employee').replace(/[^\w\s-]/g, '').trim();
-    document.title = `${cleanCompany} - Salary Slip - ${cleanEmp} - ${currentSlipPeriod}`;
-    window.print();
-    setTimeout(() => { document.title = prevTitle; }, 800);
+    const titleStr = `${cleanCompany} - Salary Slip - ${cleanEmp} - ${currentSlipPeriod}`;
+    document.title = titleStr;
+
+    if (!printRef.current) {
+      window.print();
+      setTimeout(() => { document.title = prevTitle; }, 800);
+      return;
+    }
+
+    // Collect all stylesheets from main document for perfect typography
+    const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map(node => node.outerHTML)
+      .join('\n');
+
+    let iframe = document.getElementById('payslip-print-iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'payslip-print-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
+      document.body.appendChild(iframe);
+    }
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${titleStr}</title>
+          ${headStyles}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm 12mm;
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              box-sizing: border-box !important;
+            }
+            html, body {
+              background: #ffffff !important;
+              background-color: #ffffff !important;
+              color: #0f172a !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              height: auto !important;
+              width: 100% !important;
+              overflow: visible !important;
+              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+            }
+            .payslip-print-container {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              background-color: #ffffff !important;
+              color: #0f172a !important;
+              height: auto !important;
+              overflow: visible !important;
+              font-size: 11px !important;
+              line-height: 1.4 !important;
+            }
+            .payslip-print-container * {
+              color: #0f172a !important;
+              text-shadow: none !important;
+              box-shadow: none !important;
+            }
+            .print-letterhead {
+              border-bottom: 2.5px solid #1e3a8a !important;
+              padding-bottom: 12px !important;
+              margin-bottom: 14px !important;
+            }
+            .print-brand-title {
+              color: #1e3a8a !important;
+            }
+            .print-info-grid {
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              gap: 16px !important;
+              background: #f8fafc !important;
+              background-color: #f8fafc !important;
+              border: 1px solid #cbd5e1 !important;
+              padding: 10px 14px !important;
+              margin-bottom: 14px !important;
+            }
+            .print-table {
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              border: 1.5px solid #cbd5e1 !important;
+              margin-bottom: 14px !important;
+            }
+            .print-earnings-col {
+              border-right: 1.5px solid #cbd5e1 !important;
+            }
+            .print-th {
+              background: #f1f5f9 !important;
+              background-color: #f1f5f9 !important;
+              border-bottom: 1.5px solid #cbd5e1 !important;
+              font-weight: 800 !important;
+              color: #0f172a !important;
+              padding: 7px 12px !important;
+            }
+            .print-net-banner {
+              background: #ecfdf5 !important;
+              background-color: #ecfdf5 !important;
+              border: 1.5px solid #a7f3d0 !important;
+              padding: 10px 14px !important;
+              margin-bottom: 14px !important;
+            }
+            .print-net-title {
+              color: #065f46 !important;
+            }
+            .print-net-amount {
+              color: #047857 !important;
+              font-size: 22px !important;
+              font-weight: 900 !important;
+            }
+            .print-badge {
+              background-color: #dbeafe !important;
+              color: #1e3a8a !important;
+            }
+            .print-footer {
+              border-top: 1px solid #cbd5e1 !important;
+              padding-top: 10px !important;
+              margin-top: 6px !important;
+            }
+            .print-letterhead,
+            .print-info-grid,
+            .print-table,
+            .print-net-banner,
+            .print-footer {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+            .no-print {
+              display: none !important;
+            }
+          </style>
+        </head>
+        <body class="light" style="background:#ffffff !important; color:#0f172a !important; margin:0 !important; padding:0 !important;">
+          ${printRef.current.outerHTML}
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        window.print();
+      }
+      setTimeout(() => { document.title = prevTitle; }, 1000);
+    }, 250);
   };
 
   const handleSendEmail = () => {
@@ -202,6 +363,13 @@ export const PayslipModal = ({
             margin: 8mm 10mm;
           }
 
+          /* Strip all transforms and animations that trap fixed positioning */
+          *, *::before, *::after {
+            transform: none !important;
+            animation: none !important;
+            transition: none !important;
+          }
+
           /* Force browser page and root to clean white */
           html, body {
             background: #ffffff !important;
@@ -209,7 +377,7 @@ export const PayslipModal = ({
             color: #0f172a !important;
             width: 100% !important;
             height: auto !important;
-            min-height: 100% !important;
+            min-height: 0 !important;
             overflow: visible !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -219,7 +387,7 @@ export const PayslipModal = ({
 
           #root, #root > div {
             height: auto !important;
-            min-height: auto !important;
+            min-height: 0 !important;
             overflow: visible !important;
           }
 
@@ -244,7 +412,7 @@ export const PayslipModal = ({
             padding: 0 !important;
             margin: 0 !important;
             width: 100% !important;
-            height: auto !important;
+            height: 0 !important;
             min-height: 0 !important;
             overflow: visible !important;
             z-index: auto !important;
@@ -256,7 +424,8 @@ export const PayslipModal = ({
             max-width: 100% !important;
             max-height: none !important;
             width: 100% !important;
-            height: auto !important;
+            height: 0 !important;
+            min-height: 0 !important;
             overflow: visible !important;
             box-shadow: none !important;
             border: none !important;
@@ -268,7 +437,7 @@ export const PayslipModal = ({
           }
 
           .payslip-print-container {
-            position: absolute !important;
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
@@ -278,14 +447,15 @@ export const PayslipModal = ({
             overflow: visible !important;
             box-shadow: none !important;
             border: none !important;
-            padding: 0 !important;
+            padding: 8mm 10mm !important;
             margin: 0 !important;
             background: #ffffff !important;
             background-color: #ffffff !important;
             color: #0f172a !important;
-            font-size: 10px !important;
+            font-size: 10.5px !important;
             line-height: 1.35 !important;
             box-sizing: border-box !important;
+            z-index: 99999999 !important;
           }
 
           /* Ensure high-contrast dark text and clean light cards regardless of dark mode */
