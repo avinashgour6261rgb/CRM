@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   MoreVertical,
   Eye,
@@ -42,7 +43,8 @@ export const LeadsTable = ({
   const { addToast } = useToast();
   const { confirm } = useConfirm();
   const { currentUser } = useAuth();
-  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [activeMenuLead, setActiveMenuLead] = useState(null);
+  const [menuCoords, setMenuCoords] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
   const [sortField, setSortField] = useState('idNumber');
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc' | 'desc'
@@ -56,16 +58,56 @@ export const LeadsTable = ({
     setCurrentPage(1);
   }, [leads]);
 
-  // Close dropdown on outside click
+  // Toggle action menu with smart viewport positioning
+  const handleToggleMenu = (e, lead) => {
+    e.stopPropagation();
+    if (activeMenuLead?._id === lead._id) {
+      setActiveMenuLead(null);
+      setMenuCoords(null);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dropdownHeight = 210; // menu height with padding
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpwards = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
+    setActiveMenuLead(lead);
+    setMenuCoords({
+      openUpwards,
+      top: openUpwards ? undefined : rect.bottom + 5,
+      bottom: openUpwards ? window.innerHeight - rect.top + 5 : undefined,
+      right: Math.max(16, window.innerWidth - rect.right)
+    });
+  };
+
+  // Close dropdown on outside click, window resize, or scroll
   useEffect(() => {
+    if (!activeMenuLead) return;
+
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setActiveMenuId(null);
+        setActiveMenuLead(null);
+        setMenuCoords(null);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+
+    const handleScrollOrResize = (e) => {
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      setActiveMenuLead(null);
+      setMenuCoords(null);
+    };
+
+    document.addEventListener('pointerdown', handleClickOutside);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [activeMenuLead]);
 
   const handleCopy = (text, fieldKey) => {
     navigator.clipboard.writeText(text);
@@ -124,7 +166,7 @@ export const LeadsTable = ({
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
-      <div className="overflow-x-auto max-h-[680px]">
+      <div className="overflow-x-auto min-h-[260px] max-h-[680px]">
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider whitespace-nowrap">
@@ -170,7 +212,7 @@ export const LeadsTable = ({
                 const isSelected = selectedIds.includes(lead._id);
                 const statusBadge = getStatusBadge(lead.status);
                 const priorityBadge = getPriorityBadge(lead.priority);
-                const isMenuOpen = activeMenuId === lead._id;
+                const isMenuOpen = activeMenuLead?._id === lead._id;
 
                 return (
                   <tr
@@ -394,88 +436,16 @@ export const LeadsTable = ({
                     {/* Actions Menu */}
                     <td className="py-[7px] px-2.5 text-center relative whitespace-nowrap">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuId(isMenuOpen ? null : lead._id);
-                        }}
-                        className={`border-none rounded w-6 h-6 flex items-center justify-center cursor-pointer text-slate-500 mx-auto transition-colors ${
-                          isMenuOpen ? 'bg-slate-200 dark:bg-slate-700' : 'bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800'
+                        onClick={(e) => handleToggleMenu(e, lead)}
+                        className={`border-none rounded w-6 h-6 flex items-center justify-center cursor-pointer mx-auto transition-colors ${
+                          isMenuOpen
+                            ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 ring-1 ring-blue-400/40'
+                            : 'bg-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                         title="Actions"
                       >
                         <MoreVertical size={14} />
                       </button>
-
-                      {isMenuOpen && (
-                        <div
-                          ref={menuRef}
-                          className="absolute right-4 top-10 w-[180px] bg-white dark:bg-slate-800 rounded-[10px] shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-[100] text-left"
-                        >
-                          <button
-                            onClick={() => {
-                              setActiveMenuId(null);
-                              onViewLead(lead);
-                            }}
-                            className={actionItemClass}
-                          >
-                            <Eye size={14} className="text-blue-600" />
-                            <span>View Details</span>
-                          </button>
-
-                          {canEditLeads(currentUser, lead) && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setActiveMenuId(null);
-                                  onEditLead(lead);
-                                }}
-                                className={actionItemClass}
-                              >
-                                <Edit2 size={14} className="text-sky-600" />
-                                <span>Edit Lead</span>
-                              </button>
-
-                              {lead.status !== 'converted' && (
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    updateLeadStatus(lead._id, 'converted');
-                                  }}
-                                  className={`${actionItemClass} text-green-600 dark:text-green-400`}
-                                >
-                                  <CheckCircle2 size={14} className="text-green-600" />
-                                  <span>Convert to Won</span>
-                                </button>
-                              )}
-                            </>
-                          )}
-
-                          {canDeleteLead(currentUser, lead) && (
-                            <>
-                              <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
-
-                              <button
-                                onClick={async () => {
-                                  setActiveMenuId(null);
-                                  const ok = await confirm({
-                                    title: 'Delete Lead',
-                                    message: `Are you sure you want to delete lead "${lead.name}"? This action cannot be undone.`,
-                                    confirmText: 'Delete Lead',
-                                    variant: 'danger'
-                                  });
-                                  if (ok) {
-                                    deleteLead(lead._id);
-                                  }
-                                }}
-                                className={`${actionItemClass} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30`}
-                              >
-                                <Trash2 size={14} className="text-red-600" />
-                                <span>Delete Lead</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
                     </td>
                   </tr>
                 );
@@ -503,6 +473,116 @@ export const LeadsTable = ({
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
       />
+
+      {/* Floating Action Menu rendered in Portal to prevent clipping from table overflow */}
+      {activeMenuLead && menuCoords && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            top: menuCoords.top !== undefined ? `${menuCoords.top}px` : 'auto',
+            bottom: menuCoords.bottom !== undefined ? `${menuCoords.bottom}px` : 'auto',
+            right: `${menuCoords.right}px`,
+            zIndex: 99999
+          }}
+          className="w-[195px] bg-white dark:bg-slate-800 rounded-[10px] shadow-2xl border border-slate-200 dark:border-slate-700 p-1.5 text-left select-none animate-in fade-in zoom-in-95 duration-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-2.5 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700/60 mb-1">
+            Lead Actions
+          </div>
+
+          <button
+            onClick={() => {
+              const lead = activeMenuLead;
+              setActiveMenuLead(null);
+              setMenuCoords(null);
+              onViewLead(lead);
+            }}
+            className={actionItemClass}
+          >
+            <Eye size={14} className="text-blue-600 dark:text-blue-400" />
+            <span>View Details</span>
+          </button>
+
+          {canEditLeads(currentUser, activeMenuLead) && (
+            <>
+              <button
+                onClick={() => {
+                  const lead = activeMenuLead;
+                  setActiveMenuLead(null);
+                  setMenuCoords(null);
+                  onEditLead(lead);
+                }}
+                className={actionItemClass}
+              >
+                <Edit2 size={14} className="text-sky-600 dark:text-sky-400" />
+                <span>Edit Lead</span>
+              </button>
+
+              {activeMenuLead.status !== 'converted' && (
+                <button
+                  onClick={() => {
+                    const lead = activeMenuLead;
+                    setActiveMenuLead(null);
+                    setMenuCoords(null);
+                    updateLeadStatus(lead._id, 'converted');
+                    addToast(`Lead "${lead.name}" marked as Converted (Won)!`, 'success');
+                  }}
+                  className={`${actionItemClass} text-green-600 dark:text-green-400`}
+                >
+                  <CheckCircle2 size={14} className="text-green-600 dark:text-green-400" />
+                  <span>Convert to Won</span>
+                </button>
+              )}
+
+              {activeMenuLead.status !== 'lost' && activeMenuLead.status !== 'converted' && (
+                <button
+                  onClick={() => {
+                    const lead = activeMenuLead;
+                    setActiveMenuLead(null);
+                    setMenuCoords(null);
+                    updateLeadStatus(lead._id, 'lost');
+                    addToast(`Lead "${lead.name}" marked as Lost`, 'info');
+                  }}
+                  className={`${actionItemClass} text-slate-600 dark:text-slate-400`}
+                >
+                  <span className="text-[12px] leading-none">❌</span>
+                  <span>Mark as Lost</span>
+                </button>
+              )}
+            </>
+          )}
+
+          {canDeleteLead(currentUser, activeMenuLead) && (
+            <>
+              <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
+
+              <button
+                onClick={async () => {
+                  const lead = activeMenuLead;
+                  setActiveMenuLead(null);
+                  setMenuCoords(null);
+                  const ok = await confirm({
+                    title: 'Delete Lead',
+                    message: `Are you sure you want to delete lead "${lead.name}"? This action cannot be undone.`,
+                    confirmText: 'Delete Lead',
+                    variant: 'danger'
+                  });
+                  if (ok) {
+                    deleteLead(lead._id);
+                  }
+                }}
+                className={`${actionItemClass} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30`}
+              >
+                <Trash2 size={14} className="text-red-600 dark:text-red-400" />
+                <span>Delete Lead</span>
+              </button>
+            </>
+          )}
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
