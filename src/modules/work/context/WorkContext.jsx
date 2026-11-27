@@ -2763,6 +2763,7 @@ export const WorkProvider = ({ children }) => {
 
     const runningPrevTask = tasks.find(t => {
       if (String(t._id || t.id) === String(taskId)) return false;
+      if (t.status === 'completed' || t.completedAt) return false;
       const workerTimer = getWorkerTaskTimer(t, targetWorkerObj || { _id: targetUserKey });
       if (workerTimer?.timerRunning) return true;
       if (!t.timerRunning) return false;
@@ -2774,8 +2775,8 @@ export const WorkProvider = ({ children }) => {
 
     const prevTaskCandidate = runningPrevTask ||
       (activeTimer && activeTimer.timerRunning && String(activeTimer.taskId) !== String(taskId) && !isForOtherEmployee
-        ? (tasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode && t.taskCode === activeTimer.taskCode)) ||
-           allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode && t.taskCode === activeTimer.taskCode)))
+        ? (tasks.find(t => (t.status !== 'completed' && !t.completedAt) && (String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode && t.taskCode === activeTimer.taskCode))) ||
+           allTasks.find(t => (t.status !== 'completed' && !t.completedAt) && (String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode && t.taskCode === activeTimer.taskCode))))
         : null);
 
     if (prevTaskCandidate) {
@@ -3997,18 +3998,34 @@ export const WorkProvider = ({ children }) => {
       const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
       lastTaskActionRef.current = { taskId: String(taskId), action: 'stop', at: now };
 
+      const isMultiAssignee = (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds.length > 1) ||
+        (Array.isArray(targetTask.assignees) && targetTask.assignees.length > 1);
+      const completerWorkerId = targetTask.activeWorkerId || activeTimer?.activeWorkerId || currentUser?._id;
+      const completerObj = (employees || []).find(e =>
+        String(e._id) === String(completerWorkerId) ||
+        String(e.employeeCode) === String(completerWorkerId)
+      ) || currentUser;
+      const completerWorkerTimer = getWorkerTaskTimer(targetTask, completerObj);
+
       // 1. Prior accumulated seconds from closed sessions (baseline before this active run started)
-      const baseAccumulated = (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)))
-        ? (Number(activeTimer.accumulatedSeconds) || 0)
-        : (Number(targetTask.accumulatedSeconds) || 0);
+      const baseAccumulated = isMultiAssignee
+        ? Math.max(
+            Number(completerWorkerTimer?.accumulatedSeconds) || 0,
+            getWorkerDailySessionSeconds(targetTask, completerObj, todayStr)
+          )
+        : ((activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)))
+            ? (Number(activeTimer.accumulatedSeconds) || 0)
+            : (Number(targetTask.accumulatedSeconds) || 0));
 
       // 2. Compute current session elapsed seconds strictly once
       let liveSessionElapsed = 0;
-      if (targetTask.timerRunning && targetTask.startedAt) {
-        const effectiveStart = Math.max(Number(targetTask.startedAt), todayMidnightMs);
-        liveSessionElapsed = Math.max(0, Math.floor((now - effectiveStart) / 1000));
-      } else if (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)) && activeTimer.timerRunning && activeTimer.startedAt) {
-        const effectiveStart = Math.max(Number(activeTimer.startedAt), todayMidnightMs);
+      const activeStartTs = (completerWorkerTimer?.timerRunning && completerWorkerTimer?.startedAt)
+        ? Number(completerWorkerTimer.startedAt)
+        : ((activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)) && activeTimer.timerRunning && activeTimer.startedAt)
+            ? Number(activeTimer.startedAt)
+            : ((targetTask.timerRunning && targetTask.startedAt) ? Number(targetTask.startedAt) : 0));
+      if (activeStartTs > 0 && activeStartTs <= now) {
+        const effectiveStart = Math.max(activeStartTs, todayMidnightMs);
         liveSessionElapsed = Math.max(0, Math.floor((now - effectiveStart) / 1000));
       }
 
@@ -4042,9 +4059,6 @@ export const WorkProvider = ({ children }) => {
 
       const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
       const updatedDailySessions = { ...(targetTask.dailySessions || {}) };
-
-      const isMultiAssignee = (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds.length > 1) ||
-        (Array.isArray(targetTask.assignees) && targetTask.assignees.length > 1);
 
       // Archive Past Days Work (Sessions from yesterday / earlier days for single-assignee tasks)
       if (pastDurationToArchive > 0 && !isMultiAssignee) {
@@ -4126,11 +4140,52 @@ export const WorkProvider = ({ children }) => {
 
       let durationToLogForCompleter = 0;
       if (isMultiAssignee) {
-        const workerSessions = targetTask?.assigneeSessions?.[workerKey] || targetTask?.assigneeSessions?.[String(workerId)] || {};
-        const prevWorkerToday = Number(workerSessions[todayStr]) || 0;
+        const prevWorkerToday = getWorkerDailySessionSeconds(targetTask, completerObj, todayStr);
         durationToLogForCompleter = prevWorkerToday + todayElapsedSecs;
       } else {
         durationToLogForCompleter = durationToLogToday;
+      }
+
+      const updatedAssigneeTimers = { ...(targetTask.assigneeTimers || {}) };
+      for (const [k, v] of Object.entries(updatedAssigneeTimers)) {
+        if (v && typeof v === 'object') {
+          updatedAssigneeTimers[k] = {
+            ...v,
+            timerRunning: false,
+            startedAt: null,
+            pausedAt: v.timerRunning ? now : v.pausedAt,
+            updatedAt: now
+          };
+        }
+      }
+      const updatedAssigneeSessions = { ...(targetTask.assigneeSessions || {}) };
+      const updatedAssigneeHours = { ...(targetTask.assigneeHours || {}) };
+      if (isMultiAssignee) {
+        const workerLifetimeFinal = Math.max(baseAccumulated + liveSessionElapsed, durationToLogForCompleter);
+        const completerTimerState = {
+          ...(completerWorkerTimer || {}),
+          timerRunning: false,
+          startedAt: null,
+          pausedAt: now,
+          accumulatedSeconds: workerLifetimeFinal,
+          todayWorkSeconds: durationToLogForCompleter,
+          sessionDate: todayStr,
+          workerId: String(workerId),
+          workerName: String(workerName),
+          updatedAt: now
+        };
+        updatedAssigneeTimers[workerKey] = completerTimerState;
+        if (workerId && String(workerId) !== workerKey) {
+          updatedAssigneeTimers[String(workerId)] = completerTimerState;
+        }
+        updatedAssigneeSessions[workerKey] = { ...(updatedAssigneeSessions[workerKey] || {}), [todayStr]: durationToLogForCompleter };
+        if (workerId && String(workerId) !== workerKey) {
+          updatedAssigneeSessions[String(workerId)] = { ...(updatedAssigneeSessions[String(workerId)] || {}), [todayStr]: durationToLogForCompleter };
+        }
+        updatedAssigneeHours[workerKey] = workerLifetimeFinal;
+        if (workerId && String(workerId) !== workerKey) {
+          updatedAssigneeHours[String(workerId)] = workerLifetimeFinal;
+        }
       }
 
       if (durationToLogForCompleter > 0) {
@@ -4197,13 +4252,20 @@ export const WorkProvider = ({ children }) => {
       window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: { taskId, userKey: targetUserKey } }));
       window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId, userKey: targetUserKey } }));
 
-      const finalTaskDuration = durationSecs > 0
-        ? durationSecs
-        : Math.max(
-            durationToLogToday,
-            Number(targetTask.accumulatedSeconds) || 0,
-            Number(targetTask.durationSeconds) || 0
-          );
+      const finalTaskDuration = isMultiAssignee
+        ? getMultiAssigneeCombinedSeconds({
+            ...targetTask,
+            assigneeTimers: updatedAssigneeTimers,
+            assigneeSessions: updatedAssigneeSessions,
+            assigneeHours: updatedAssigneeHours
+          }, now)
+        : (durationSecs > 0
+            ? durationSecs
+            : Math.max(
+                durationToLogToday,
+                Number(targetTask.accumulatedSeconds) || 0,
+                Number(targetTask.durationSeconds) || 0
+              ));
       const hoursLoggedNum = +(finalTaskDuration / 3600).toFixed(2);
       const hoursLoggedFormatted = formatSeconds(finalTaskDuration);
       const completionHistory = {
@@ -4235,9 +4297,12 @@ export const WorkProvider = ({ children }) => {
             timerSeconds: finalTaskDuration,
             durationSeconds: finalTaskDuration,
             accumulatedSeconds: finalTaskDuration,
-            todayWorkSeconds: durationToLogToday,
-            accumulatedTodaySeconds: durationToLogToday,
+            todayWorkSeconds: durationToLogForCompleter,
+            accumulatedTodaySeconds: durationToLogForCompleter,
             dailySessions: updatedDailySessions,
+            assigneeTimers: updatedAssigneeTimers,
+            assigneeSessions: updatedAssigneeSessions,
+            assigneeHours: updatedAssigneeHours,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             completedAt: completedIso,
@@ -4272,8 +4337,11 @@ export const WorkProvider = ({ children }) => {
           timerSeconds: finalTaskDuration,
           durationSeconds: finalTaskDuration,
           accumulatedSeconds: finalTaskDuration,
-          todayWorkSeconds: durationToLogToday,
+          todayWorkSeconds: durationToLogForCompleter,
           dailySessions: updatedDailySessions,
+          assigneeTimers: updatedAssigneeTimers,
+          assigneeSessions: updatedAssigneeSessions,
+          assigneeHours: updatedAssigneeHours,
           hoursLogged: hoursLoggedNum,
           hoursLoggedText: hoursLoggedFormatted,
           completedAt: completedIso,
@@ -4306,9 +4374,12 @@ export const WorkProvider = ({ children }) => {
             timerSeconds: finalTaskDuration,
             durationSeconds: finalTaskDuration,
             accumulatedSeconds: finalTaskDuration,
-            todayWorkSeconds: durationToLogToday,
-            accumulatedTodaySeconds: durationToLogToday,
+            todayWorkSeconds: durationToLogForCompleter,
+            accumulatedTodaySeconds: durationToLogForCompleter,
             dailySessions: updatedDailySessions,
+            assigneeTimers: updatedAssigneeTimers,
+            assigneeSessions: updatedAssigneeSessions,
+            assigneeHours: updatedAssigneeHours,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             completedAt: completedIso,
