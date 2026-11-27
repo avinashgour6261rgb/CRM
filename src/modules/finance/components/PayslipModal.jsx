@@ -769,7 +769,7 @@ export const PayslipModal = ({
               {/* Earnings Column */}
               <div className="print-earnings-col sm:border-r-[1.5px] sm:border-slate-300 dark:sm:border-slate-700">
                 <div className="p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
-                  <span>EARNINGS (उपलब्धियां)</span>
+                  <span>EARNINGS</span>
                   <span>AMOUNT (₹)</span>
                 </div>
                 <div className="p-3 px-3.5 text-xs flex flex-col gap-2 min-h-[140px]">
@@ -793,7 +793,7 @@ export const PayslipModal = ({
               {/* Deductions Column */}
               <div>
                 <div className="p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
-                  <span>ATTENDANCE DEDUCTIONS (कटौतियां)</span>
+                  <span>ATTENDANCE DEDUCTIONS</span>
                   <span>AMOUNT (₹)</span>
                 </div>
                 <div className="p-3 px-3.5 text-xs flex flex-col gap-2 min-h-[140px]">
