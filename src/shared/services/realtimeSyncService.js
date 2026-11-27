@@ -470,6 +470,7 @@ if (typeof window !== 'undefined') {
     applySingleItemMutation(KEYS.LEAVES, data);
     window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: data || {} }));
   });
+  subscribeSocketEvent('resignation:updated', (data) => applySingleItemMutation(KEYS.RESIGNATIONS, data, 'id'));
   subscribeSocketEvent('holiday:updated', (data) => applySingleItemMutation(KEYS.HOLIDAYS, data));
   subscribeSocketEvent('appreciation:updated', (data) => applySingleItemMutation(KEYS.APPRECIATIONS, data));
   subscribeSocketEvent('employee:updated', (data) => applySingleItemMutation(KEYS.EMPLOYEES, data, 'employeeCode'));

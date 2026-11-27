@@ -11,7 +11,7 @@ const { getIstDateString } = require('../../../shared/utils/dateUtils');
 exports.getResignations = async (req, res) => {
   try {
     const u = req.user;
-    const isPrivileged = Boolean(u && (u.isAdmin || u.isDelegatedAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.manageEmployees || u.permissions?.allAccess));
+    const isPrivileged = Boolean(u && (u.isAdmin || u.isDelegatedAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.manageEmployees || u.permissions?.reviewResignations || u.permissions?.allAccess));
     let filter = {};
     if (!isPrivileged && u) {
       const selfOr = [];
@@ -59,6 +59,11 @@ exports.submitResignation = async (req, res) => {
       );
     }
 
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('resignation:updated', { action: 'create', item: resignation });
+    } catch (_) {}
+
     res.status(201).json({
       success: true,
       data: resignation,
@@ -72,7 +77,7 @@ exports.submitResignation = async (req, res) => {
 exports.reviewResignation = async (req, res) => {
   try {
     const u = req.user;
-    const isPrivileged = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.manageEmployees || u.permissions?.allAccess));
+    const isPrivileged = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.manageEmployees || u.permissions?.reviewResignations || u.permissions?.allAccess));
     if (!isPrivileged) {
       return res.status(403).json({ success: false, message: 'Access denied: Only Admin or HR can review resignations.' });
     }
@@ -139,6 +144,7 @@ exports.reviewResignation = async (req, res) => {
 
     try {
       const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+      emitToAll('resignation:updated', { action: 'update', item: resignation });
       if (updatedEmp) {
         const safeObj = updatedEmp.toObject ? updatedEmp.toObject() : updatedEmp;
         delete safeObj.password;

@@ -81,7 +81,7 @@ export const DashboardPage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { currentUser: authUser, role: authRole, roleConfig: authRoleConfig } = useAuth();
-  const { employees, leaves, attendance, holidays, appreciations, currentUser: hrUser, updateLeaveStatus, acknowledgeLeave, updateEmployee } = useHR();
+  const { employees, leaves, attendance, holidays, appreciations, resignations, currentUser: hrUser, updateLeaveStatus, acknowledgeLeave, updateEmployee } = useHR();
   const baseUser = authUser || hrUser;
   const currentUser = React.useMemo(() => {
     if (!baseUser) return null;
@@ -2187,6 +2187,13 @@ export const DashboardPage = () => {
     return false;
   });
 
+  const canReviewResignationsQueue = Boolean(
+    currentUser && (isAdmin(currentUser) || isHR(currentUser) || isUserAdminOrHR || perms?.reviewResignations || perms?.manageEmployees)
+  );
+  const pendingResignationsForMe = canReviewResignationsQueue
+    ? (resignations || []).filter(r => r?.status === 'pending')
+    : [];
+
   // 2. Pending leaves submitted BY the current user (awaiting review by Admin/HR/Approver)
   const myPendingLeaves = (leaves || []).filter(l => {
     return l?.status === 'pending' && isLeaveApplicant(l, currentUser);
@@ -3696,6 +3703,39 @@ export const DashboardPage = () => {
             </button>
           </div>
 
+          {/* Resignation Requests Queue for Admin / HR */}
+          {pendingResignationsForMe.length > 0 && (
+            <div className="p-2 px-2.5 bg-purple-50 dark:bg-purple-950/40 rounded-lg border border-purple-200 dark:border-purple-900/60 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-purple-800 dark:text-purple-300 flex items-center justify-between">
+                <span>📋 Resignation Requests ({pendingResignationsForMe.length})</span>
+                <span onClick={() => navigate('/leaves?tab=resignations')} className="cursor-pointer underline text-[10.5px]">
+                  Review →
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {pendingResignationsForMe.slice(0, 2).map(r => (
+                  <div
+                    key={r._id || r.id}
+                    onClick={() => navigate('/leaves?tab=resignations')}
+                    className="flex items-center justify-between py-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border border-purple-100 dark:border-purple-900/40 cursor-pointer hover:bg-purple-50/40 dark:hover:bg-slate-700/60 transition-colors"
+                  >
+                    <div>
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white">
+                        {r.employeeName} {r.employeeCode ? `(${r.employeeCode})` : ''}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {r.reason || 'Resignation Request'} • LWD: {r.proposedLastWorkingDay || '—'}
+                      </div>
+                    </div>
+                    <span className="py-0.5 px-2 rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10.5px] font-bold shrink-0">
+                      Review
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Leave Requests: Separated Review Queue (for Reviewers) vs My Pending Applications (for Applicant) */}
           {pendingLeaveRequestsForMe.length > 0 && (
             <div className="p-2 px-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-900/60 flex flex-col gap-1.5">
@@ -3846,7 +3886,7 @@ export const DashboardPage = () => {
               ))}
             </div>
           ) : (
-            pendingLeaveRequestsForMe.length === 0 && myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length === 0 && (
+            pendingResignationsForMe.length === 0 && pendingLeaveRequestsForMe.length === 0 && myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length === 0 && (
               <div className="text-center py-3 text-slate-400 dark:text-slate-500">
                 <Plane size={22} className="mx-auto mb-1" />
                 <div className="text-[11.5px]">No leaves today</div>

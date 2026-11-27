@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Plus,
   Download,
@@ -51,7 +52,17 @@ export const LeavesPage = () => {
   } = useHR();
   const currentUser = authUser || hrUser;
 
-  const [pageTab, setPageTab] = useState('leaves'); // 'leaves' | 'resignations'
+  const location = useLocation();
+  const [pageTab, setPageTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab') === 'resignations' ? 'resignations' : 'leaves';
+  }); // 'leaves' | 'resignations'
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab') === 'resignations') {
+      setPageTab('resignations');
+    }
+  }, [location.search]);
   const pendingResignationsCount = (resignations || []).filter(r => r.status === 'pending').length;
 
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false);

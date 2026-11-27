@@ -73,7 +73,7 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
   } = useTimer();
 
   const { currentUser: authUser, logout: authLogout } = useAuth();
-  const { currentUser: hrUser, leaves, employees, updateEmployee } = useHR();
+  const { currentUser: hrUser, leaves, employees, resignations, updateEmployee } = useHR();
   const currentUser = authUser || hrUser;
 
   const currentSystemRole = (currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.role?.toLowerCase().includes('admin'))
@@ -239,7 +239,13 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
   const upcomingBirthdaysList = (computedBirthdays || []).filter(b => b?.isUpcoming30Days && !b?.isToday);
   const todayAnnivList = (computedAnniversaries || []).filter(a => a?.diffDays === 0 || a?.isToday);
   const upcomingAnnivList = (computedAnniversaries || []).filter(a => a?.isUpcoming30Days && !a?.isToday);
-  const totalNotifications = myPendingTasks.length + openTicketsList.length + todayBirthdaysList.length + upcomingBirthdaysList.length + todayAnnivList.length + upcomingAnnivList.length;
+  const canSeeResignationAlerts = Boolean(
+    currentSystemRole === 'admin' || currentSystemRole === 'hr' || currentUser?.permissions?.reviewResignations || currentUser?.permissions?.manageEmployees
+  );
+  const pendingResignationsList = canSeeResignationAlerts
+    ? (resignations || []).filter(r => r?.status === 'pending')
+    : [];
+  const totalNotifications = pendingResignationsList.length + myPendingTasks.length + openTicketsList.length + todayBirthdaysList.length + upcomingBirthdaysList.length + todayAnnivList.length + upcomingAnnivList.length;
 
 
   // Search Results
@@ -543,6 +549,24 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
                         <div key={a._id || a.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex items-center justify-between gap-1">
                           <span className="truncate">🌟 {a.name} ({a.serviceYearsText})</span>
                           <span className="text-[10px] text-purple-400 font-semibold shrink-0">📅 {a.anniversaryDate || a.annivFormattedDate} (⏳ {a.diffDays}d)</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {pendingResignationsList.length > 0 && (
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                      <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mb-1">
+                        RESIGNATION REQUESTS ({pendingResignationsList.length})
+                      </div>
+                      {pendingResignationsList.slice(0, 3).map(r => (
+                        <div
+                          key={r._id || r.id}
+                          onClick={() => { setShowNotifications(false); navigate('/leaves?tab=resignations'); }}
+                          className="p-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors truncate"
+                          title={`${r.employeeName} - ${r.reason}`}
+                        >
+                          📋 {r.employeeName} ({r.employeeCode || 'EMP'}) • LWD: {r.proposedLastWorkingDay || '—'}
                         </div>
                       ))}
                     </div>
