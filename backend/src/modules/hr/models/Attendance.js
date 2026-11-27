@@ -98,6 +98,15 @@ const AttendanceSchema = new mongoose.Schema(
       type: String,
       default: 'System'
     },
+    isPaidLeave: {
+      type: Boolean,
+      default: true
+    },
+    leavePayType: {
+      type: String,
+      enum: ['paid', 'unpaid', null],
+      default: 'paid'
+    },
     overtimeHours: {
       type: Number,
       default: 0

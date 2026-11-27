@@ -361,6 +361,8 @@ const markAttendance = asyncHandler(async (req, res) => {
   }
   if ('clockOutTime' in req.body) updateFields.clockOutTime = clockOutTime;
   if ('clockOutTimestamp' in req.body) updateFields.clockOutTimestamp = clockOutTimestamp;
+  if (req.body.isPaidLeave !== undefined) updateFields.isPaidLeave = Boolean(req.body.isPaidLeave);
+  if (req.body.leavePayType !== undefined) updateFields.leavePayType = req.body.leavePayType;
   if (workSeconds !== undefined) updateFields.workSeconds = Number(workSeconds) || 0;
   if (breakSeconds !== undefined) updateFields.breakSeconds = Number(breakSeconds) || 0;
   if (isOnBreak !== undefined) updateFields.isOnBreak = Boolean(isOnBreak);

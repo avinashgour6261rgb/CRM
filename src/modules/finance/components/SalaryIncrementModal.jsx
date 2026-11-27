@@ -101,41 +101,15 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
     ? (newGrossMonthly >= oldGrossMonthly)
     : (revisionType === 'hike');
 
-  // Breakdown calculation (Direct salary without PF/TDS vs Standard Statutory Breakdown)
-  let newBasic = 0;
-  let newHra = 0;
-  let newAllowances = 0;
-  let newPf = 0;
-  let newPt = 0;
-  let newTds = 0;
-  let totalDeductions = 0;
-  let netInHand = 0;
-
-  if (isDirectSalary) {
-    // Direct in-hand package (No deductions)
-    newBasic = newGrossMonthly;
-    newHra = 0;
-    newAllowances = 0;
-    newPf = 0;
-    newPt = 0;
-    newTds = 0;
-    totalDeductions = 0;
-    netInHand = newGrossMonthly;
-  } else {
-    // Standard Statutory Breakdown: Basic (50%), HRA (40% of Basic), Allowances (Remainder)
-    newBasic = Math.round(newGrossMonthly * 0.50);
-    newHra = Math.round(newBasic * 0.40);
-    newAllowances = Math.max(0, newGrossMonthly - newBasic - newHra);
-    newPf = Math.min(1800, Math.round(newBasic * 0.12));
-    newPt = newGrossMonthly > 15000 ? 200 : 0;
-    newTds = newGrossMonthly > 100000
-      ? Math.round(newGrossMonthly * 0.10)
-      : newGrossMonthly > 50000
-        ? Math.round((newGrossMonthly - 50000) * 0.05)
-        : 0;
-    totalDeductions = newPf + newPt + newTds;
-    netInHand = Math.max(0, newGrossMonthly - totalDeductions);
-  }
+  // Direct In-Hand Salary Model (No statutory breakdown, 100% direct agreed package)
+  const newBasic = newGrossMonthly;
+  const newHra = 0;
+  const newAllowances = 0;
+  const newPf = 0;
+  const newPt = 0;
+  const newTds = 0;
+  const totalDeductions = 0;
+  const netInHand = newGrossMonthly;
 
   const newAnnualCTC = newGrossMonthly * 12;
 
@@ -355,16 +329,9 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                 <label className="text-[12.5px] font-bold text-slate-700 dark:text-slate-300">
                   2. Adjustment Mode
                 </label>
-                {/* Direct Salary Toggle */}
-                <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={isDirectSalary}
-                    onChange={e => setIsDirectSalary(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 accent-blue-600 cursor-pointer"
-                  />
-                  <span>Direct In-Hand Salary (No PF / TDS Deductions)</span>
-                </label>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                  <Check size={13} /> Direct In-Hand Salary (No Statutory Deductions)
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
@@ -552,27 +519,23 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
               </div>
             </div>
 
-            {/* Step 5: Recalculated Breakdown Details */}
-            <div className="p-3.5 px-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {/* Step 5: Direct Salary Package Overview */}
+            <div className="p-3.5 px-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Basic Pay:</span>
-                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-[12.5px]">₹{newBasic.toLocaleString('en-IN')}</span>
+                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Revised Monthly Salary:</span>
+                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-[13px]">₹{newGrossMonthly.toLocaleString('en-IN')}</span>
               </div>
               <div>
-                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">HRA Allowance:</span>
-                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-[12.5px]">₹{newHra.toLocaleString('en-IN')}</span>
+                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Revised Annual CTC:</span>
+                <span className="font-extrabold text-purple-700 dark:text-purple-300 text-[13px]">₹{newAnnualCTC.toLocaleString('en-IN')}</span>
               </div>
               <div>
-                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Special Allowances:</span>
-                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-[12.5px]">₹{newAllowances.toLocaleString('en-IN')}</span>
+                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Statutory Deductions:</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-[12px]">₹0 (Direct In-Hand)</span>
               </div>
               <div>
-                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">PF & Deductions:</span>
-                <span className="font-extrabold text-rose-600 dark:text-rose-400 text-[12.5px]">-₹{totalDeductions.toLocaleString('en-IN')}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Net In-Hand:</span>
-                <span className="font-extrabold text-blue-600 dark:text-blue-400 text-[12.5px]">₹{netInHand.toLocaleString('en-IN')}</span>
+                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Monthly Net Take-Home:</span>
+                <span className="font-extrabold text-emerald-700 dark:text-emerald-400 text-[14px]">₹{netInHand.toLocaleString('en-IN')}</span>
               </div>
             </div>
 

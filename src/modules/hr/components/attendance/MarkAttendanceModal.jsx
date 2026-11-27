@@ -38,6 +38,8 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
     employeeId: defaultEmpId,
     date: getLocalDateString(),
     status: 'present',
+    leavePayType: 'paid', // 'paid' | 'unpaid'
+    isPaidLeave: true,
     clockInTime: defaultInTime,
     clockOutTime: defaultOutTime,
     notes: '',
@@ -50,6 +52,8 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
         employeeId: initialData.employeeId || initialData.employee || defaultEmpId,
         date: initialData.date || getLocalDateString(),
         status: initialData.status || 'present',
+        leavePayType: initialData.leavePayType || (initialData.isPaidLeave === false ? 'unpaid' : 'paid'),
+        isPaidLeave: initialData.isPaidLeave !== undefined ? Boolean(initialData.isPaidLeave) : (initialData.leavePayType !== 'unpaid'),
         clockInTime: initialData.clockInTime || defaultInTime,
         clockOutTime: initialData.clockOutTime || defaultOutTime,
         notes: initialData.notes || '',
@@ -157,6 +161,57 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
             </select>
           </div>
         </div>
+
+        {/* Leave Type Selector (Paid vs Unpaid Loss of Pay) */}
+        {formData.status === 'on_leave' && (
+          <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg flex flex-col gap-2">
+            <label className="block text-[13px] font-bold text-slate-800 dark:text-slate-200">
+              Leave Compensation & Payroll Impact <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, leavePayType: 'paid', isPaidLeave: true }))}
+                className={`py-2 px-3 rounded-lg border text-left flex items-center gap-2 cursor-pointer transition-all ${
+                  formData.leavePayType === 'paid'
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span className="text-base">🟢</span>
+                <div>
+                  <div className="text-xs font-bold">Paid Leave</div>
+                  <div className={`text-[10.5px] ${formData.leavePayType === 'paid' ? 'text-emerald-100' : 'text-slate-500'}`}>
+                    0 deduction, full salary
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, leavePayType: 'unpaid', isPaidLeave: false }))}
+                className={`py-2 px-3 rounded-lg border text-left flex items-center gap-2 cursor-pointer transition-all ${
+                  formData.leavePayType === 'unpaid'
+                    ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span className="text-base">🔴</span>
+                <div>
+                  <div className="text-xs font-bold">Unpaid Leave (LOP)</div>
+                  <div className={`text-[10.5px] ${formData.leavePayType === 'unpaid' ? 'text-rose-100' : 'text-slate-500'}`}>
+                    1 day salary deduction
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {formData.leavePayType === 'unpaid'
+                ? '⚠️ Loss of Pay (LOP): Exactly 1 calendar day salary will be deducted in this month’s payroll.'
+                : '✔️ Approved Paid Leave: Will be counted as a payable day without any salary deduction.'}
+            </div>
+          </div>
+        )}
 
         {/* Regularize / Waive Late Penalty Action for Admin */}
         {isPrivileged && (formData.status === 'half_day' || formData.status === 'late' || initialData?.isLate) && (

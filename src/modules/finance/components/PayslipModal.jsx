@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../../shared/context/ToastContext';
 import { getCompanySettings, getWeeklyOffDays } from '../../../shared/services/companySettingsService';
 import { useModalUX } from '../../../shared/hooks/useModalUX';
+import { calculateMonthlyPayroll } from '../../../shared/utils/payrollUtils';
 
 /**
  * Converts Indian currency numbers to words (Lakhs, Crores, Thousands)
@@ -70,7 +71,8 @@ export const PayslipModal = ({
   month = '',
   salaryData = null,
   attendance = [],
-  leaves = []
+  leaves = [],
+  holidays = []
 }) => {
   const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const { addToast } = useToast();
@@ -102,224 +104,24 @@ export const PayslipModal = ({
     }
   }, [month]);
 
-  // Compute resolved salary breakdown accurately from passed props, employee records, or EMS_SALARY_MAP
-  const resolvedSalary = useMemo(() => {
+  // Compute unified monthly payroll, attendance breakdown & LOP
+  const payroll = useMemo(() => {
     if (!employee) return null;
-
-    // 1. Explicitly passed salary data
-    if (salaryData && (salaryData.basic !== undefined || salaryData.monthlyGross !== undefined)) {
-      const gross = Number(salaryData.monthlyGross) || Number(salaryData.basic) || 0;
-      if (salaryData.isDirectSalary || (salaryData.totalDeductions === 0 && !salaryData.pf)) {
-        return {
-          gross,
-          basic: gross,
-          hra: 0,
-          allowances: 0,
-          bonus: 0,
-          pf: 0,
-          pt: 0,
-          tds: 0,
-          deductions: 0,
-          netSalary: gross,
-          isDirectSalary: true
-        };
-      }
-      const basic = salaryData.basic || Math.round(gross * 0.5);
-      const hra = salaryData.hra || Math.round(basic * 0.4);
-      const allowances = salaryData.allowances || Math.max(0, gross - basic - hra);
-      const bonus = salaryData.bonus || 0;
-      const pf = salaryData.pf !== undefined ? salaryData.pf : Math.min(1800, Math.round(basic * 0.12));
-      const pt = salaryData.pt !== undefined ? salaryData.pt : (gross > 15000 ? 200 : 0);
-      const tds = salaryData.tds !== undefined ? salaryData.tds : (gross > 50000 ? Math.round((gross - 50000) * 0.05) : 0);
-      const deductions = pf + pt + tds;
-      return {
-        gross,
-        basic,
-        hra,
-        allowances,
-        bonus,
-        pf,
-        pt,
-        tds,
-        deductions,
-        netSalary: Math.max(0, gross - deductions),
-        isDirectSalary: false
-      };
-    }
-
-    // 2. Employee record stored salary object
-    if (employee.salary && (employee.salary.basic !== undefined || employee.salary.monthlyGross !== undefined)) {
-      const s = employee.salary;
-      const gross = Number(s.monthlyGross) || Number(s.basic) || (Number(employee.startingSalary) || 0);
-      if (s.isDirectSalary || (s.totalDeductions === 0 && !s.pf)) {
-        return {
-          gross,
-          basic: gross,
-          hra: 0,
-          allowances: 0,
-          bonus: 0,
-          pf: 0,
-          pt: 0,
-          tds: 0,
-          deductions: 0,
-          netSalary: gross,
-          isDirectSalary: true
-        };
-      }
-      const basic = s.basic || Math.round(gross * 0.5);
-      const hra = s.hra || Math.round(basic * 0.4);
-      const allowances = s.allowances || Math.max(0, gross - basic - hra);
-      const bonus = s.bonus || 0;
-      const pf = s.pf !== undefined ? s.pf : Math.min(1800, Math.round(basic * 0.12));
-      const pt = s.pt !== undefined ? s.pt : (gross > 15000 ? 200 : 0);
-      const tds = s.tds !== undefined ? s.tds : (gross > 50000 ? Math.round((gross - 50000) * 0.05) : 0);
-      const deductions = pf + pt + tds;
-      return {
-        gross,
-        basic,
-        hra,
-        allowances,
-        bonus,
-        pf,
-        pt,
-        tds,
-        deductions,
-        netSalary: Math.max(0, gross - deductions),
-        isDirectSalary: false
-      };
-    }
-
-    // 3. Saved localStorage EMS_SALARY_MAP
-    try {
-      const map = JSON.parse(localStorage.getItem('EMS_SALARY_MAP') || '{}');
-      const code = employee.employeeCode || employee._id;
-      if (code && map[code]) {
-        const s = map[code];
-        const gross = Number(s.monthlyGross) || (s.basic + (s.hra || 0) + (s.allowances || 0) + (s.bonus || 0));
-        if (s.isDirectSalary || (s.totalDeductions === 0 && !s.pf)) {
-          return {
-            gross,
-            basic: gross,
-            hra: 0,
-            allowances: 0,
-            bonus: 0,
-            pf: 0,
-            pt: 0,
-            tds: 0,
-            deductions: 0,
-            netSalary: gross,
-            isDirectSalary: true
-          };
-        }
-        const basic = s.basic || Math.round(gross * 0.5);
-        const hra = s.hra || Math.round(basic * 0.4);
-        const allowances = s.allowances || 0;
-        const bonus = s.bonus || 0;
-        const pf = s.pf || 0;
-        const pt = s.pt !== undefined ? s.pt : 200;
-        const tds = s.tds || 0;
-        const deductions = pf + pt + tds;
-        return {
-          gross,
-          basic,
-          hra,
-          allowances,
-          bonus,
-          pf,
-          pt,
-          tds,
-          deductions,
-          netSalary: Math.max(0, gross - deductions),
-          isDirectSalary: false
-        };
-      }
-    } catch (e) {}
-
-    // 4. Fallback calculation from startingSalary or default
-    const gross = Number(employee.startingSalary) || (employee.annualCTC ? Math.round(Number(employee.annualCTC) / 12) : 35000);
-    const basic = Math.round(gross * 0.5);
-    const hra = Math.round(basic * 0.4);
-    const allowances = Math.max(0, gross - basic - hra);
-    const pf = Math.min(1800, Math.round(basic * 0.12));
-    const pt = gross > 15000 ? 200 : 0;
-    const tds = gross > 50000 ? Math.round((gross - 50000) * 0.05) : 0;
-    const deductions = pf + pt + tds;
-    return {
-      gross,
-      basic,
-      hra,
-      allowances,
-      bonus: 0,
-      pf,
-      pt,
-      tds,
-      deductions,
-      netSalary: Math.max(0, gross - deductions),
-      isDirectSalary: false
-    };
-  }, [employee, salaryData]);
-
-  if (!isOpen || !employee || !resolvedSalary) return null;
-
-  // Days in selected month & real attendance summary
-  const monthIdx = MONTH_OPTIONS.indexOf(selectedMonthName);
-  const yearNum = parseInt(selectedYear, 10) || nowYear;
-  const daysInMonth = monthIdx >= 0 ? new Date(yearNum, monthIdx + 1, 0).getDate() : 30;
-  const currentSlipPeriod = `${selectedMonthName} ${selectedYear}`;
-  const monthPrefix = `${yearNum}-${String(monthIdx + 1).padStart(2, '0')}`;
-
-  const attendanceSummary = (() => {
-    const empId = String(employee?._id || employee?.id || '').toLowerCase();
-    const empCode = String(employee?.employeeCode || '').toLowerCase();
-    const empName = (employee?.name || '').trim().toLowerCase();
-    const empAtt = (attendance || []).filter(a => {
-      if (!a?.date || !a.date.startsWith(monthPrefix)) return false;
-      const aId = String(a.employeeId || (typeof a.employee === 'object' ? a.employee?._id : a.employee) || '').toLowerCase();
-      const aCode = String(a.employeeCode || '').toLowerCase();
-      const aName = (a.employeeName || '').trim().toLowerCase();
-      return (empId && aId === empId) || (empCode && aCode === empCode) || (empName && aName === empName);
+    return calculateMonthlyPayroll({
+      employee,
+      selectedMonth: `${selectedMonthName} ${selectedYear}`,
+      attendance,
+      leaves,
+      holidays,
+      companySettings: companyInfo,
+      salaryOverride: salaryData
     });
+  }, [employee, selectedMonthName, selectedYear, attendance, leaves, holidays, companyInfo, salaryData]);
 
-    if (empAtt.length === 0) {
-      return { paidDays: daysInMonth, lopDays: 0, presentDays: daysInMonth, halfDays: 0, hasRealData: false };
-    }
+  if (!isOpen || !employee || !payroll) return null;
 
-    const weeklyOffs = getWeeklyOffDays(companyInfo);
-    let weekOffCount = 0;
-    for (let d = 1; d <= daysInMonth; d++) {
-      if (weeklyOffs.includes(new Date(yearNum, monthIdx, d).getDay())) weekOffCount++;
-    }
-
-    const fullPresent = empAtt.filter(a => ['present', 'late'].includes(a.status)).length;
-    const halfDays = empAtt.filter(a => a.status === 'half_day').length;
-    const absentExplicit = empAtt.filter(a => a.status === 'absent').length;
-    const unpaidLeaveDays = (leaves || []).filter(l =>
-      l.status === 'approved' &&
-      String(l.leaveType || l.type || '').toLowerCase().includes('unpaid') &&
-      l.startDate && l.startDate.startsWith(monthPrefix) && (
-        (empId && String(l.employeeId || l.employee || '').toLowerCase() === empId) ||
-        (empCode && String(l.employeeCode || '').toLowerCase() === empCode)
-      )
-    ).reduce((sum, l) => sum + (Number(l.days) || 1), 0);
-
-    const lopDays = +(absentExplicit + (halfDays * 0.5) + unpaidLeaveDays).toFixed(1);
-    const paidDays = Math.max(0, +(daysInMonth - lopDays).toFixed(1));
-
-    return {
-      paidDays,
-      lopDays,
-      presentDays: +(fullPresent + halfDays * 0.5).toFixed(1),
-      halfDays,
-      weekOffCount,
-      hasRealData: true
-    };
-  })();
-
-  // Real-world mathematical balance: Deduct LOP from gross/net pay
-  const dailyRate = Math.round(resolvedSalary.gross / daysInMonth);
-  const lopDeductionAmount = Math.round(attendanceSummary.lopDays * dailyRate);
-  const effectiveTotalDeductions = resolvedSalary.deductions + lopDeductionAmount;
-  const effectiveNetSalary = Math.max(0, resolvedSalary.gross - effectiveTotalDeductions);
+  const currentSlipPeriod = `${selectedMonthName} ${selectedYear}`;
+  const monthIdx = MONTH_OPTIONS.indexOf(selectedMonthName);
 
   // Corporate Serial & Statutory identifiers
   const payslipSerialNo = `INF/PAY/${selectedYear}-${String(monthIdx + 1).padStart(2, '0')}/${employee.employeeCode || employee._id || 'EMP'}`;
@@ -351,9 +153,9 @@ export const PayslipModal = ({
     const body = encodeURIComponent(
       `Hi ${employee.name || 'Team Member'},\n\n` +
       `Please find your salary summary for ${currentSlipPeriod}:\n` +
-      `• Gross Earnings: Rs. ${Number(resolvedSalary.gross || 0).toLocaleString('en-IN')}\n` +
-      `• Total Deductions: Rs. ${Number(effectiveTotalDeductions || 0).toLocaleString('en-IN')}\n` +
-      `• Net Take-Home Pay: Rs. ${Number(effectiveNetSalary || 0).toLocaleString('en-IN')}\n\n` +
+      `• Agreed Monthly In-Hand Salary: Rs. ${Number(payroll.monthlyGross || 0).toLocaleString('en-IN')}\n` +
+      `• Total LOP / Attendance Deductions: Rs. ${Number(payroll.totalLopDeduction || 0).toLocaleString('en-IN')}\n` +
+      `• Net Take-Home Pay: Rs. ${Number(payroll.netSalary || 0).toLocaleString('en-IN')}\n\n` +
       `(Note: Please refer to the PDF exported via "Print / Save PDF".)\n\n` +
       `Regards,\n${companyName} Payroll Team`
     );
@@ -569,19 +371,19 @@ export const PayslipModal = ({
                   <span className="font-semibold font-mono text-slate-800 dark:text-slate-200">{panNumber}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Total Working Days:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{daysInMonth} Days in Month</span>
+                  <span className="text-slate-500 dark:text-slate-400">Total Calendar Days:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{payroll.daysInMonth} Days in Month</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">Paid Days / Attendance:</span>
                   <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
-                    {attendanceSummary.paidDays} Paid Days {attendanceSummary.lopDays > 0 ? `(LOP: ${attendanceSummary.lopDays}d)` : ''}
+                    {payroll.paidDays} Paid Days {payroll.totalLopDays > 0 ? `(LOP: ${payroll.totalLopDays}d)` : '(Full Attendance)'}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* 3. Earnings & Deductions Table */}
+            {/* 3. Earnings & Deductions Table (Direct In-Hand Salary Basis) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 border-[1.5px] border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden mb-4">
               {/* Earnings Column */}
               <div className="sm:border-r-[1.5px] sm:border-slate-300 dark:sm:border-slate-700">
@@ -589,28 +391,20 @@ export const PayslipModal = ({
                   <span>EARNINGS (उपलब्धियां)</span>
                   <span>AMOUNT (₹)</span>
                 </div>
-                <div className="p-3 px-3.5 text-xs flex flex-col gap-2">
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-300">Basic Salary</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">₹{resolvedSalary.basic.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-300">House Rent Allowance (HRA)</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">₹{resolvedSalary.hra.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-300">Special Allowances</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">₹{resolvedSalary.allowances.toLocaleString('en-IN')}</span>
-                  </div>
-                  {resolvedSalary.bonus > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-700 dark:text-slate-300">Performance Incentive / Bonus</span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">₹{resolvedSalary.bonus.toLocaleString('en-IN')}</span>
+                <div className="p-3 px-3.5 text-xs flex flex-col gap-2 min-h-[140px]">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-slate-800 dark:text-slate-200 font-bold">Agreed Monthly In-Hand Salary</div>
+                      <div className="text-[10.5px] text-slate-500">
+                        ₹{payroll.dailyRate.toLocaleString('en-IN')}/calendar day ({payroll.daysInMonth} days in {selectedMonthName})
+                      </div>
                     </div>
-                  )}
-                  <div className="flex justify-between border-t-[1.5px] border-slate-300 dark:border-slate-700 pt-2 font-extrabold text-emerald-700 dark:text-emerald-400 text-[13px]">
+                    <span className="font-bold text-slate-900 dark:text-slate-100">₹{payroll.monthlyGross.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  <div className="mt-auto pt-3 flex justify-between border-t-[1.5px] border-slate-300 dark:border-slate-700 font-extrabold text-emerald-700 dark:text-emerald-400 text-[13px]">
                     <span>Total Gross Earnings (A)</span>
-                    <span>₹{resolvedSalary.gross.toLocaleString('en-IN')}</span>
+                    <span>₹{payroll.monthlyGross.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>
@@ -618,31 +412,57 @@ export const PayslipModal = ({
               {/* Deductions Column */}
               <div>
                 <div className="p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
-                  <span>DEDUCTIONS (कटौतियां)</span>
+                  <span>ATTENDANCE DEDUCTIONS (कटौतियां)</span>
                   <span>AMOUNT (₹)</span>
                 </div>
-                <div className="p-3 px-3.5 text-xs flex flex-col gap-2">
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-300">Provident Fund (EPF / PF)</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">₹{resolvedSalary.pf.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-300">Professional Tax (PT)</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">₹{resolvedSalary.pt.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-300">Tax Deducted at Source (TDS)</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">₹{resolvedSalary.tds.toLocaleString('en-IN')}</span>
-                  </div>
-                  {lopDeductionAmount > 0 && (
-                    <div className="flex justify-between text-rose-600 dark:text-rose-400 font-semibold">
-                      <span>Loss of Pay (LOP: {attendanceSummary.lopDays}d)</span>
-                      <span>-₹{lopDeductionAmount.toLocaleString('en-IN')}</span>
+                <div className="p-3 px-3.5 text-xs flex flex-col gap-2 min-h-[140px]">
+                  {payroll.totalLopDeduction > 0 ? (
+                    <>
+                      {payroll.absentDays > 0 && (
+                        <div className="flex justify-between items-center text-rose-600 dark:text-rose-400">
+                          <div>
+                            <span className="font-semibold">Absent Deduction</span>
+                            <span className="text-[10px] text-slate-500 block">
+                              ({payroll.absentDays} {payroll.absentDays === 1 ? 'day' : 'days'} @ ₹{payroll.dailyRate}/day)
+                            </span>
+                          </div>
+                          <span className="font-bold">-₹{payroll.absentDeduction.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
+
+                      {payroll.halfDays > 0 && (
+                        <div className="flex justify-between items-center text-amber-700 dark:text-amber-400">
+                          <div>
+                            <span className="font-semibold">Half-Day Deduction</span>
+                            <span className="text-[10px] text-slate-500 block">
+                              ({payroll.halfDays} {payroll.halfDays === 1 ? 'half-day' : 'half-days'} @ ₹{payroll.halfDayRate})
+                            </span>
+                          </div>
+                          <span className="font-bold">-₹{payroll.halfDayDeduction.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
+
+                      {payroll.unpaidLeaveDays > 0 && (
+                        <div className="flex justify-between items-center text-purple-700 dark:text-purple-400">
+                          <div>
+                            <span className="font-semibold">Unpaid Leave (LOP)</span>
+                            <span className="text-[10px] text-slate-500 block">
+                              ({payroll.unpaidLeaveDays} {payroll.unpaidLeaveDays === 1 ? 'day' : 'days'} @ ₹{payroll.dailyRate}/day)
+                            </span>
+                          </div>
+                          <span className="font-bold">-₹{payroll.unpaidLeaveDeduction.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="py-3 text-slate-500 italic text-[11px] leading-relaxed">
+                      ✔️ Full month attendance recorded. Zero Loss of Pay (LOP) deductions for {selectedMonthName}.
                     </div>
                   )}
-                  <div className="flex justify-between border-t-[1.5px] border-slate-300 dark:border-slate-700 pt-2 font-extrabold text-rose-700 dark:text-rose-400 text-[13px]">
+
+                  <div className="mt-auto pt-3 flex justify-between border-t-[1.5px] border-slate-300 dark:border-slate-700 font-extrabold text-rose-700 dark:text-rose-400 text-[13px]">
                     <span>Total Deductions (B)</span>
-                    <span>₹{effectiveTotalDeductions.toLocaleString('en-IN')}</span>
+                    <span>{payroll.totalLopDeduction > 0 ? `-₹${payroll.totalLopDeduction.toLocaleString('en-IN')}` : '₹0'}</span>
                   </div>
                 </div>
               </div>
@@ -655,10 +475,10 @@ export const PayslipModal = ({
                   NET TAKE-HOME SALARY PAYABLE (A - B)
                 </span>
                 <div className="text-[24px] font-black text-emerald-950 dark:text-emerald-100 leading-tight">
-                  ₹{effectiveNetSalary.toLocaleString('en-IN')}
+                  ₹{payroll.netSalary.toLocaleString('en-IN')}
                 </div>
                 <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 mt-0.5 italic">
-                  ({numberToWordsINR(effectiveNetSalary)})
+                  ({numberToWordsINR(payroll.netSalary)})
                 </div>
               </div>
               <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 text-xs font-bold">

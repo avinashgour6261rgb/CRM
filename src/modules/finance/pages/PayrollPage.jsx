@@ -31,6 +31,7 @@ import { PayslipModal } from '../components/PayslipModal';
 import { SalaryIncrementModal } from '../components/SalaryIncrementModal';
 import { getCompanySettings, saveCompanySettings } from '../../../shared/services/companySettingsService';
 import { downloadCSVBlob } from '../../../shared/utils/exportUtils';
+import { calculateMonthlyPayroll, resolveDirectSalary } from '../../../shared/utils/payrollUtils';
 
 const PAYROLL_MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -53,7 +54,7 @@ const getRecentPayrollMonths = (count = 12) => {
 };
 
 export const PayrollPage = () => {
-  const { employees, currentUser, updateEmployee, attendance, leaves } = useHR();
+  const { employees, currentUser, updateEmployee, attendance, leaves, holidays } = useHR();
   const { currentUser: authUser, isHRorAdmin: isAuthHRorAdmin } = useAuth();
   const { addToast } = useToast();
 
@@ -98,125 +99,22 @@ export const PayrollPage = () => {
 
   const isCurrentMonthDisbursed = disbursedMonths.includes(selectedMonth);
 
-  // Helper to resolve an employee's live salary from DB/record or standard statutory structure
-  const resolveEmployeeSalary = (emp) => {
-    if (!emp) {
-      return {
-        basic: 45000,
-        hra: 18000,
-        allowances: 12000,
-        bonus: 0,
-        pf: 1800,
-        pt: 200,
-        tds: 0,
-        monthlyGross: 75000,
-        netSalary: 73000,
-        annualCTC: 900000
-      };
-    }
-
-    // 1. Employee document in DB has salary structure
-    if (emp.salary && (emp.salary.basic !== undefined || emp.salary.monthlyGross !== undefined)) {
-      const s = emp.salary;
-      const gross = Number(s.monthlyGross) || Number(s.basic) || (Number(emp.startingSalary) || 45000);
-      if (s.isDirectSalary || (s.totalDeductions === 0 && !s.pf)) {
-        return {
-          ...s,
-          basic: gross,
-          hra: 0,
-          allowances: 0,
-          bonus: 0,
-          pf: 0,
-          pt: 0,
-          tds: 0,
-          monthlyGross: gross,
-          netSalary: gross,
-          annualCTC: gross * 12,
-          isDirectSalary: true
-        };
-      }
-      const basic = s.basic || Math.round(gross * 0.5);
-      const hra = s.hra || Math.round(basic * 0.4);
-      const allowances = s.allowances || Math.max(0, gross - basic - hra);
-      const bonus = s.bonus || 0;
-      const pf = s.pf !== undefined ? s.pf : Math.min(1800, Math.round(basic * 0.12));
-      const pt = s.pt !== undefined ? s.pt : (gross > 15000 ? 200 : 0);
-      const tds = s.tds !== undefined ? s.tds : (gross > 50000 ? Math.round((gross - 50000) * 0.05) : 0);
-      const deductions = pf + pt + tds;
-      return {
-        ...s,
-        basic,
-        hra,
-        allowances,
-        bonus,
-        pf,
-        pt,
-        tds,
-        monthlyGross: gross,
-        netSalary: Math.max(0, gross - deductions),
-        annualCTC: gross * 12,
-        isDirectSalary: false
-      };
-    }
-
-    // 2. Fallback to startingSalary or annualCTC configured on employee
-    const gross = Number(emp.startingSalary) || (emp.annualCTC ? Math.round(Number(emp.annualCTC) / 12) : 45000);
-    const basic = Math.round(gross * 0.5);
-    const hra = Math.round(basic * 0.4);
-    const allowances = Math.max(0, gross - basic - hra);
-    const pf = Math.min(1800, Math.round(basic * 0.12));
-    const pt = gross > 15000 ? 200 : 0;
-    const tds = gross > 50000 ? Math.round((gross - 50000) * 0.05) : 0;
-    const deductions = pf + pt + tds;
-
-    return {
-      basic,
-      hra,
-      allowances,
-      bonus: 0,
-      pf,
-      pt,
-      tds,
-      monthlyGross: gross,
-      netSalary: Math.max(0, gross - deductions),
-      annualCTC: gross * 12
-    };
+  // Helper to resolve an employee's direct in-hand salary (no statutory splits)
+  const resolveEmployeeSalary = (emp, salaryData = null) => {
+    return resolveDirectSalary(emp, salaryData);
   };
 
-  // Helper to compute attendance-based Loss of Pay (LOP) for the selected month
-  const computeEmployeeLOP = (emp) => {
-    if (!emp || !attendance) return { unpaidDays: 0, lopAmount: 0 };
-    const empId = String(emp._id || emp.employeeCode || '');
-    const empCode = String(emp.employeeCode || '');
-
-    // Get current month prefix, e.g. "2026-10"
-    const monthMap = {
-      'January': '01', 'February': '02', 'March': '03', 'April': '04',
-      'May': '05', 'June': '06', 'July': '07', 'August': '08',
-      'September': '09', 'October': '10', 'November': '11', 'December': '12'
-    };
-    const parts = selectedMonth.split(' ');
-    const mNum = monthMap[parts[0]] || '10';
-    const yNum = parts[1] || '2026';
-    const monthPrefix = `${yNum}-${mNum}`;
-
-    // Filter unexcused absences
-    const monthAbsences = (attendance || []).filter(a => {
-      const aEmpId = String(a.employeeId || (typeof a.employee === 'object' ? a.employee?._id : a.employee) || '');
-      const aEmpCode = String(a.employeeCode || '');
-      const matchEmp = (empId && aEmpId === empId) || (empCode && aEmpCode === empCode);
-      const matchMonth = a.date && a.date.startsWith(monthPrefix);
-      return matchEmp && matchMonth && a.status === 'absent';
+  // Helper to compute attendance-based monthly payroll, calendar daily rate & LOP
+  const computeEmployeePayroll = (emp, salaryOverride = null) => {
+    return calculateMonthlyPayroll({
+      employee: emp,
+      selectedMonth,
+      attendance,
+      leaves,
+      holidays,
+      companySettings: getCompanySettings(),
+      salaryOverride
     });
-
-    const unpaidDays = monthAbsences.length;
-    const salary = resolveEmployeeSalary(emp);
-    const mIdx = PAYROLL_MONTH_NAMES.indexOf(parts[0]);
-    const daysInMonth = mIdx >= 0 ? new Date(parseInt(yNum, 10), mIdx + 1, 0).getDate() : 30;
-    const dailyRate = Math.round(salary.monthlyGross / daysInMonth);
-    const lopAmount = unpaidDays * dailyRate;
-
-    return { unpaidDays, lopAmount };
   };
 
   // Listen for global salary revision events across pages
@@ -302,9 +200,10 @@ export const PayrollPage = () => {
   // =========================================================================
   if (!isPrivileged) {
     const myEmp = effectiveUser;
-    const mySalary = resolveEmployeeSalary(myEmp);
-    const { unpaidDays, lopAmount } = computeEmployeeLOP(myEmp);
-    const netTakeHome = Math.max(0, mySalary.netSalary - lopAmount);
+    const payroll = computeEmployeePayroll(myEmp);
+    const mySalary = payroll.monthlyGross;
+    const netTakeHome = payroll.netSalary;
+    const totalDeductions = payroll.totalLopDeduction;
 
     return (
       <div className="flex flex-col gap-3.5 min-h-full pb-8 animate-fade-in">
@@ -320,11 +219,11 @@ export const PayrollPage = () => {
                   My Salary & Compensation Hub
                 </h1>
                 <span className="text-[10px] font-extrabold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                  Employee Self-Service
+                  Direct In-Hand Salary
                 </span>
               </div>
               <p className="mt-0.5 m-0 text-xs text-slate-500 dark:text-slate-400">
-                View your monthly compensation package, tax breakdown, and download official payslips
+                View monthly agreed in-hand salary, live attendance tracking & official downloadable payslip
               </p>
             </div>
           </div>
@@ -352,15 +251,15 @@ export const PayrollPage = () => {
 
         {/* 4 Summary KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {/* 1. Monthly Gross */}
+          {/* 1. Monthly Direct In-Hand */}
           <div className="bg-white dark:bg-slate-900 rounded-xl p-3 px-4 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
               <DollarSign size={18} />
             </div>
             <div>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Monthly Gross CTC</span>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Monthly In-Hand Package</span>
               <div className="text-xl font-black text-slate-900 dark:text-slate-100 leading-tight">
-                ₹{mySalary.monthlyGross.toLocaleString('en-IN')}
+                ₹{mySalary.toLocaleString('en-IN')}
               </div>
               <span className="text-[10px] text-blue-600 font-semibold">{selectedMonth}</span>
             </div>
@@ -372,7 +271,7 @@ export const PayrollPage = () => {
               <CreditCard size={18} />
             </div>
             <div>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Net Take-Home Pay</span>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Net Payable This Month</span>
               <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 leading-tight">
                 ₹{netTakeHome.toLocaleString('en-IN')}
               </div>
@@ -382,104 +281,118 @@ export const PayrollPage = () => {
             </div>
           </div>
 
-          {/* 3. Deductions & Taxes */}
+          {/* 3. Deductions & LOP */}
           <div className="bg-white dark:bg-slate-900 rounded-xl p-3 px-4 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
               <ArrowUpDown size={18} />
             </div>
             <div>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Deductions</span>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Attendance Deductions</span>
               <div className="text-xl font-black text-rose-600 dark:text-rose-400 leading-tight">
-                ₹{(mySalary.pf + mySalary.pt + mySalary.tds + lopAmount).toLocaleString('en-IN')}
+                ₹{totalDeductions.toLocaleString('en-IN')}
               </div>
-              <span className="text-[10px] text-slate-500">PF, PT, TDS {lopAmount > 0 ? `& LOP (${unpaidDays}d)` : ''}</span>
+              <span className="text-[10px] text-slate-500">
+                {payroll.totalLopDays > 0 ? `${payroll.totalLopDays}d Loss of Pay (LOP)` : 'Full Attendance'}
+              </span>
             </div>
           </div>
 
-          {/* 4. Annual CTC */}
+          {/* 4. Annual Package */}
           <div className="bg-white dark:bg-slate-900 rounded-xl p-3 px-4 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
               <Building2 size={18} />
             </div>
             <div>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Annual Cost to Company</span>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Annual Equivalent</span>
               <div className="text-xl font-black text-purple-700 dark:text-purple-400 leading-tight">
-                ₹{mySalary.annualCTC.toLocaleString('en-IN')}
+                ₹{(mySalary * 12).toLocaleString('en-IN')}
               </div>
-              <span className="text-[10px] text-slate-500">Official Package</span>
+              <span className="text-[10px] text-slate-500">₹{(mySalary * 12 / 100000).toFixed(2)} LPA In-Hand</span>
             </div>
           </div>
         </div>
 
-        {/* Detailed Breakdown Card (Earnings vs Deductions) */}
+        {/* Detailed Breakdown Card (Monthly Compensation vs Attendance Deductions) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {/* Earnings Breakdown */}
+          {/* Monthly Package & Days Breakdown */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs">
             <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider m-0">
-                Earnings Breakdown
+                Salary & Attendance Summary
               </h3>
               <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                ₹{mySalary.monthlyGross.toLocaleString('en-IN')}
+                ₹{mySalary.toLocaleString('en-IN')}
               </span>
             </div>
 
             <div className="flex flex-col gap-2 text-xs">
               <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
-                <span className="text-slate-600 dark:text-slate-400">Basic Salary (50%)</span>
-                <span className="font-bold text-slate-900 dark:text-slate-100">₹{mySalary.basic.toLocaleString('en-IN')}</span>
+                <span className="text-slate-600 dark:text-slate-400">Monthly Agreed In-Hand Salary</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">₹{mySalary.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
-                <span className="text-slate-600 dark:text-slate-400">House Rent Allowance (HRA - 40%)</span>
-                <span className="font-bold text-slate-900 dark:text-slate-100">₹{mySalary.hra.toLocaleString('en-IN')}</span>
+                <span className="text-slate-600 dark:text-slate-400">Total Calendar Days in Month</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{payroll.daysInMonth} Days</span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
-                <span className="text-slate-600 dark:text-slate-400">Special & Conveyance Allowances</span>
-                <span className="font-bold text-slate-900 dark:text-slate-100">₹{mySalary.allowances.toLocaleString('en-IN')}</span>
+                <span className="text-slate-600 dark:text-slate-400">Daily Salary Rate (Salary / {payroll.daysInMonth})</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">₹{payroll.dailyRate.toLocaleString('en-IN')} / day</span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
-                <span className="text-slate-600 dark:text-slate-400">Performance Bonus</span>
-                <span className="font-bold text-slate-900 dark:text-slate-100">₹{(mySalary.bonus || 0).toLocaleString('en-IN')}</span>
+                <span className="text-slate-600 dark:text-slate-400">Half-Day Rate (0.5 × Daily Rate)</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">₹{payroll.halfDayRate.toLocaleString('en-IN')} / half-day</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
+                <span className="text-slate-600 dark:text-slate-400">Total Payable Days Count</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{payroll.paidDays} of {payroll.daysInMonth} Days</span>
               </div>
               <div className="flex items-center justify-between pt-2 text-sm font-extrabold text-slate-900 dark:text-slate-100">
-                <span>Total Gross Earnings</span>
-                <span className="text-blue-600 dark:text-blue-400">₹{mySalary.monthlyGross.toLocaleString('en-IN')}</span>
+                <span>Agreed Gross In-Hand</span>
+                <span className="text-blue-600 dark:text-blue-400">₹{mySalary.toLocaleString('en-IN')}</span>
               </div>
             </div>
           </div>
 
-          {/* Deductions Breakdown */}
+          {/* Attendance Deductions Breakdown */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs">
             <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider m-0">
-                Statutory Deductions & Taxes
+                Attendance Deductions (LOP)
               </h3>
               <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                ₹{(mySalary.pf + mySalary.pt + mySalary.tds + lopAmount).toLocaleString('en-IN')}
+                {totalDeductions > 0 ? `-₹${totalDeductions.toLocaleString('en-IN')}` : '₹0 (Full Attendance)'}
               </span>
             </div>
 
             <div className="flex flex-col gap-2 text-xs">
               <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
-                <span className="text-slate-600 dark:text-slate-400">Provident Fund (Employee PF 12%)</span>
-                <span className="font-bold text-rose-600 dark:text-rose-400">-₹{mySalary.pf.toLocaleString('en-IN')}</span>
+                <span className="text-slate-600 dark:text-slate-400">Full Present Days ({payroll.presentDays} Days)</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">₹0 Deduction</span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
-                <span className="text-slate-600 dark:text-slate-400">Professional Tax (PT)</span>
-                <span className="font-bold text-rose-600 dark:text-rose-400">-₹{mySalary.pt.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
-                <span className="text-slate-600 dark:text-slate-400">TDS / Income Tax Withheld</span>
-                <span className="font-bold text-rose-600 dark:text-rose-400">-₹{mySalary.tds.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
-                <span className="text-slate-600 dark:text-slate-400">Loss of Pay (LOP: {unpaidDays} Days)</span>
+                <span className="text-slate-600 dark:text-slate-400">Half-Day Deduction ({payroll.halfDays} Days @ 0.5)</span>
                 <span className="font-bold text-rose-600 dark:text-rose-400">
-                  {lopAmount > 0 ? `-₹${lopAmount.toLocaleString('en-IN')}` : '₹0'}
+                  {payroll.halfDayDeduction > 0 ? `-₹${payroll.halfDayDeduction.toLocaleString('en-IN')}` : '₹0'}
                 </span>
               </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
+                <span className="text-slate-600 dark:text-slate-400">Absent Days ({payroll.absentDays} Days @ 1.0)</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">
+                  {payroll.absentDeduction > 0 ? `-₹${payroll.absentDeduction.toLocaleString('en-IN')}` : '₹0'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
+                <span className="text-slate-600 dark:text-slate-400">Unpaid Leave Days ({payroll.unpaidLeaveDays} Days @ 1.0)</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">
+                  {payroll.unpaidLeaveDeduction > 0 ? `-₹${payroll.unpaidLeaveDeduction.toLocaleString('en-IN')}` : '₹0'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
+                <span className="text-slate-600 dark:text-slate-400">Weekly Offs & Holidays ({payroll.weeklyOffCount + payroll.holidayCount} Days)</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">Paid Rest Days</span>
+              </div>
               <div className="flex items-center justify-between pt-2 text-sm font-extrabold text-slate-900 dark:text-slate-100">
-                <span>Net Payable to Bank</span>
+                <span>Net Payable In-Hand</span>
                 <span className="text-emerald-600 dark:text-emerald-400">₹{netTakeHome.toLocaleString('en-IN')}</span>
               </div>
             </div>
@@ -492,9 +405,10 @@ export const PayrollPage = () => {
           onClose={() => setIsPayslipOpen(false)}
           employee={myEmp}
           month={selectedMonth}
-          salaryData={mySalary}
+          salaryData={mySalary ? { monthlyGross: mySalary } : null}
           attendance={attendance}
           leaves={leaves}
+          holidays={holidays}
         />
       </div>
     );
@@ -533,30 +447,24 @@ export const PayrollPage = () => {
       'Account Number',
       'IFSC Code',
       'PAN',
-      'UAN',
-      'Gross Salary (INR)',
-      'Basic (50%)',
-      'HRA & Allowances',
-      'PF (12%)',
-      'PT',
-      'TDS',
+      'Monthly In-Hand Salary (INR)',
+      'Calendar Days In Month',
+      'Paid Days',
+      'Present Days',
+      'Half Days',
+      'Absent Days',
+      'Unpaid Leave Days',
       'LOP Days',
-      'LOP Deduction (INR)',
-      'Total Deductions (INR)',
-      'Net Pay (INR)',
+      'Attendance Deductions (INR)',
+      'Net In-Hand Payable (INR)',
       'Disbursal Status'
     ];
     const rows = filteredEmployees.map(emp => {
-      const s = resolveEmployeeSalary(emp);
-      const { unpaidDays, lopAmount } = computeEmployeeLOP(emp);
-      const gross = s.monthlyGross || 0;
-      const deductions = (s.pf || 0) + (s.pt || 0) + (s.tds || 0) + lopAmount;
-      const net = Math.max(0, gross - deductions);
+      const p = computeEmployeePayroll(emp);
       const bank = emp.bankDetails?.bankName || emp.bankName || 'NA';
       const acct = emp.bankDetails?.accountNumber || emp.accountNumber || 'NA';
       const ifsc = emp.bankDetails?.ifsc || emp.ifsc || 'NA';
       const pan = emp.bankDetails?.pan || emp.pan || 'NA';
-      const uan = emp.bankDetails?.uan || emp.uan || 'NA';
 
       return [
         `"${emp.employeeCode || ''}"`,
@@ -567,24 +475,23 @@ export const PayrollPage = () => {
         `"${acct}"`,
         `"${ifsc}"`,
         `"${pan}"`,
-        `"${uan}"`,
-        gross,
-        s.basic || 0,
-        (s.hra || 0) + (s.allowances || 0) + (s.bonus || 0),
-        s.pf || 0,
-        s.pt || 0,
-        s.tds || 0,
-        unpaidDays,
-        lopAmount,
-        deductions,
-        net,
+        p.monthlyGross,
+        p.daysInMonth,
+        p.paidDays,
+        p.presentDays,
+        p.halfDays,
+        p.absentDays,
+        p.unpaidLeaveDays,
+        p.totalLopDays,
+        p.totalLopDeduction,
+        p.netSalary,
         `"${isCurrentMonthDisbursed ? 'Disbursed' : 'Pending'}"`
       ].join(',');
     });
     const cfg = getCompanySettings();
     const companyLabel = (cfg.companyName || 'Company').replace(/"/g, '""');
     const companySlug = (cfg.shortName || cfg.companyName || 'company').toLowerCase().replace(/[^a-z0-9]+/g, '_');
-    const titleBanner = `"${companyLabel} — Payroll Register (${selectedMonth})"`;
+    const titleBanner = `"${companyLabel} — Direct Payroll Register (${selectedMonth})"`;
     const csvContent = [titleBanner, headers.join(','), ...rows].join('\r\n');
     downloadCSVBlob(`${companySlug}_payroll_${selectedMonth.replace(/\s+/g, '_').toLowerCase()}.csv`, csvContent);
   };
@@ -594,16 +501,11 @@ export const PayrollPage = () => {
   let totalDeductions = 0;
   let totalNetPay = 0;
 
-  employees.forEach(emp => {
-    const s = resolveEmployeeSalary(emp);
-    const { lopAmount } = computeEmployeeLOP(emp);
-    const gross = s.monthlyGross;
-    const deductions = s.pf + s.pt + s.tds + lopAmount;
-    const net = Math.max(0, gross - deductions);
-
-    totalGross += gross;
-    totalDeductions += deductions;
-    totalNetPay += net;
+  activePayrollEmployees.forEach(emp => {
+    const p = computeEmployeePayroll(emp);
+    totalGross += p.monthlyGross;
+    totalDeductions += p.totalLopDeduction;
+    totalNetPay += p.netSalary;
   });
 
   return (
@@ -776,31 +678,28 @@ export const PayrollPage = () => {
 
         {/* Mobile Swipe Hint */}
         <div className="xl:hidden px-3.5 py-1.5 text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-          <span>👉 Swipe horizontally for Basic, Allowances, Deductions & Actions</span>
+          <span>👉 Swipe horizontally for Attendance, Deductions & Net In-Hand</span>
         </div>
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] border-collapse text-left text-xs">
+          <table className="w-full min-w-[860px] border-collapse text-left text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                 <th className="p-2 px-2.5">Employee</th>
                 <th className="p-2 px-2.5">Designation & Dept</th>
-                <th className="p-2 px-2.5">Monthly Gross</th>
-                <th className="p-2 px-2.5">Basic (50%)</th>
-                <th className="p-2 px-2.5">HRA & Allowances</th>
-                <th className="p-2 px-2.5">Deductions</th>
-                <th className="p-2 px-2.5">Net In-Hand</th>
+                <th className="p-2 px-2.5">Agreed In-Hand Salary</th>
+                <th className="p-2 px-2.5">Attendance & Paid Days</th>
+                <th className="p-2 px-2.5">LOP Deductions</th>
+                <th className="p-2 px-2.5">Net Payable In-Hand</th>
+                <th className="p-2 px-2.5 text-center">Status</th>
                 <th className="p-2 px-2.5 text-right">Compensation Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredEmployees.map(emp => {
+                const p = computeEmployeePayroll(emp);
                 const s = resolveEmployeeSalary(emp);
-                const { unpaidDays, lopAmount } = computeEmployeeLOP(emp);
-                const gross = s.monthlyGross;
-                const deductions = s.pf + s.pt + s.tds + lopAmount;
-                const net = Math.max(0, gross - deductions);
 
                 const hasRevision = s.lastRevisionPercentage !== undefined && s.lastRevisionPercentage !== null;
                 const isPositiveHike = hasRevision ? s.lastRevisionPercentage > 0 : (s.lastHikePercentage ? true : false);
@@ -844,40 +743,80 @@ export const PayrollPage = () => {
                       <div className="text-[10.5px] text-slate-500">{emp.department}</div>
                     </td>
 
-                    {/* Gross CTC */}
-                    <td className="py-[7px] px-2.5 font-extrabold text-slate-900 dark:text-slate-100 text-xs whitespace-nowrap">
-                      ₹{gross.toLocaleString('en-IN')}
+                    {/* Agreed Monthly In-Hand */}
+                    <td className="py-[7px] px-2.5 whitespace-nowrap">
+                      <div className="font-extrabold text-slate-900 dark:text-slate-100 text-xs">
+                        ₹{p.monthlyGross.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        ₹{p.dailyRate.toLocaleString('en-IN')}/day
+                      </div>
                     </td>
 
-                    {/* Basic */}
-                    <td className="py-[7px] px-2.5 font-semibold text-slate-700 dark:text-slate-300 text-[11.5px] whitespace-nowrap">
-                      ₹{s.basic.toLocaleString('en-IN')}
+                    {/* Attendance & Paid Days */}
+                    <td className="py-[7px] px-2.5 whitespace-nowrap">
+                      <div className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                        {p.paidDays} / {p.daysInMonth} Days
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-1 py-0.5 rounded font-semibold border border-emerald-200 dark:border-emerald-800">
+                          {p.presentDays}P
+                        </span>
+                        {p.halfDays > 0 && (
+                          <span className="text-[10px] bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-1 py-0.5 rounded font-semibold border border-amber-200 dark:border-amber-800">
+                            {p.halfDays}HD
+                          </span>
+                        )}
+                        {p.absentDays > 0 && (
+                          <span className="text-[10px] bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 px-1 py-0.5 rounded font-semibold border border-rose-200 dark:border-rose-800">
+                            {p.absentDays}A
+                          </span>
+                        )}
+                        {p.unpaidLeaveDays > 0 && (
+                          <span className="text-[10px] bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 px-1 py-0.5 rounded font-semibold border border-purple-200 dark:border-purple-800">
+                            {p.unpaidLeaveDays} LOP
+                          </span>
+                        )}
+                      </div>
                     </td>
 
-                    {/* HRA & Allowances */}
-                    <td className="py-[7px] px-2.5 text-green-600 dark:text-emerald-400 text-[11.5px] whitespace-nowrap">
-                      +₹{(s.hra + s.allowances + (s.bonus || 0)).toLocaleString('en-IN')}
-                    </td>
-
-                    {/* Deductions */}
-                    <td className="py-[7px] px-2.5 text-red-700 dark:text-rose-400 font-semibold text-[11.5px] whitespace-nowrap">
-                      -₹{deductions.toLocaleString('en-IN')}
-                      {lopAmount > 0 && (
-                        <span className="text-[9.5px] block text-amber-600 font-normal">
-                          (LOP: {unpaidDays}d)
+                    {/* LOP Deductions */}
+                    <td className="py-[7px] px-2.5 whitespace-nowrap">
+                      {p.totalLopDeduction > 0 ? (
+                        <div>
+                          <div className="text-red-700 dark:text-rose-400 font-bold text-xs">
+                            -₹{p.totalLopDeduction.toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-[10px] text-amber-600 dark:text-amber-400">
+                            {p.totalLopDays}d LOP ({p.absentDays} absent, {p.halfDays} half-day)
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
+                          ₹0 (Full Attendance)
                         </span>
                       )}
                     </td>
 
                     {/* Net Pay */}
-                    <td className="py-[7px] px-2.5 font-extrabold text-green-700 dark:text-emerald-400 text-[12.5px] whitespace-nowrap">
-                      ₹{net.toLocaleString('en-IN')}
+                    <td className="py-[7px] px-2.5 font-extrabold text-green-700 dark:text-emerald-400 text-[13px] whitespace-nowrap">
+                      ₹{p.netSalary.toLocaleString('en-IN')}
+                    </td>
+
+                    {/* Status */}
+                    <td className="py-[7px] px-2.5 text-center whitespace-nowrap">
+                      <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        isCurrentMonthDisbursed
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                          : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                      }`}>
+                        {isCurrentMonthDisbursed ? '✓ Disbursed' : '⏳ Pending'}
+                      </span>
                     </td>
 
                     {/* Actions */}
                     <td className="py-[7px] px-2.5 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-[5px]">
-                        
                         {/* Revise Salary Button */}
                         {canManageSalaries && (
                           <button
@@ -917,6 +856,7 @@ export const PayrollPage = () => {
         salaryData={activeEmployeeForPayslip ? resolveEmployeeSalary(activeEmployeeForPayslip) : null}
         attendance={attendance}
         leaves={leaves}
+        holidays={holidays}
       />
 
       {/* Salary Revision & Compensation Modal */}

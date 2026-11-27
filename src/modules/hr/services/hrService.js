@@ -1219,6 +1219,8 @@ export const hrService = {
         breakHistory: attendanceData.breakHistory !== undefined ? attendanceData.breakHistory : (existingIndex >= 0 ? attendance[existingIndex].breakHistory : []),
         punchSessions: attendanceData.punchSessions !== undefined ? attendanceData.punchSessions : (existingIndex >= 0 ? attendance[existingIndex].punchSessions : []),
         isClockedIn: attendanceData.isClockedIn !== undefined ? attendanceData.isClockedIn : (Boolean(finalClockIn) && !finalClockOut),
+        isPaidLeave: attendanceData.isPaidLeave !== undefined ? Boolean(attendanceData.isPaidLeave) : (attendanceData.leavePayType ? attendanceData.leavePayType === 'paid' : (existingIndex >= 0 && attendance[existingIndex].isPaidLeave !== undefined ? attendance[existingIndex].isPaidLeave : true)),
+        leavePayType: attendanceData.leavePayType || (attendanceData.isPaidLeave === false ? 'unpaid' : 'paid'),
         updatedAt: new Date().toISOString()
       };
 

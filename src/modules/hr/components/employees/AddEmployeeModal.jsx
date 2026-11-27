@@ -184,50 +184,22 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     customFields: []
   });
 
-  const computeSalaryBreakdown = (grossVal, enableDeductions = false, isPf = false) => {
+  const computeSalaryBreakdown = (grossVal) => {
     const gross = Math.max(0, Number(grossVal) || 0);
     const annualCTC = gross * 12;
-
-    if (!enableDeductions) {
-      // Direct clean salary: exactly what is paid without confusing deductions
-      return {
-        monthlyGross: gross,
-        annualCTC,
-        basic: gross,
-        hra: 0,
-        allowances: 0,
-        bonus: 0,
-        pf: 0,
-        pt: 0,
-        tds: 0,
-        totalDeductions: 0,
-        netSalary: gross,
-        isDirectSalary: true
-      };
-    }
-
-    // Advanced statutory deductions (only if Admin explicitly enables it)
-    const basic = Math.round(gross * 0.5);
-    const hra = Math.round(basic * 0.4);
-    const allowances = Math.max(0, gross - basic - hra);
-    const pf = isPf ? Math.min(1800, Math.round(basic * 0.12)) : 0;
-    const pt = gross > 15000 ? 200 : 0;
-    const tds = gross > 50000 ? Math.round((gross - 50000) * 0.05) : 0;
-    const totalDeductions = pf + pt + tds;
-    const netSalary = Math.max(0, gross - totalDeductions);
     return {
       monthlyGross: gross,
       annualCTC,
-      basic,
-      hra,
-      allowances,
+      basic: gross,
+      hra: 0,
+      allowances: 0,
       bonus: 0,
-      pf,
-      pt,
-      tds,
-      totalDeductions,
-      netSalary,
-      isDirectSalary: false
+      pf: 0,
+      pt: 0,
+      tds: 0,
+      totalDeductions: 0,
+      netSalary: gross,
+      isDirectSalary: true
     };
   };
 
@@ -1139,68 +1111,14 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              {/* ⚙️ Optional Admin Deductions Feature (Direct calculation by default) */}
-              <div className="border-t border-dashed border-slate-300 pt-2.5 flex flex-col gap-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={formData.enableDeductions === true}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      enableDeductions: e.target.checked
-                    }))}
-                    className="w-4 h-4 cursor-pointer"
-                  />
-                  <span className="text-xs font-bold text-slate-700">
-                    ⚙️ Enable Statutory Deductions Breakdown (PF, PT, TDS) — Optional for Admin
-                  </span>
-                </label>
-
-                {formData.enableDeductions ? (
-                  <div className="bg-white dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700 p-3 flex flex-col gap-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <label className="flex items-center gap-1.5 text-[11.5px] font-semibold text-slate-700 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.includePF === true}
-                          onChange={(e) => setFormData(prev => ({ ...prev, includePF: e.target.checked }))}
-                        />
-                        <span>Include PF / EPF (12% of Basic capped at ₹1,800)</span>
-                      </label>
-                    </div>
-
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-2 text-[11.5px]">
-                      <div>
-                        <span className="text-slate-500">Basic (50%):</span>
-                        <div className="font-bold text-slate-900">₹{breakdown.basic.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">HRA (20%):</span>
-                        <div className="font-bold text-slate-900">₹{breakdown.hra.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Allowances:</span>
-                        <div className="font-bold text-slate-900">₹{breakdown.allowances.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">PF Deduction:</span>
-                        <div className="font-bold text-red-700">-₹{breakdown.pf.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">PT:</span>
-                        <div className="font-bold text-red-700">-₹{breakdown.pt}</div>
-                      </div>
-                      <div className="border-l border-dashed border-slate-300 pl-2">
-                        <span className="text-green-800 font-bold">In-Hand (Net):</span>
-                        <div className="font-extrabold text-green-700 text-[13px]">₹{breakdown.netSalary.toLocaleString()}</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-500 italic">
-                    💡 Direct Payment Mode: 100% of the entered amount is paid directly without deductions.
-                  </div>
-                )}
+              {/* Direct In-Hand Confirmation Indicator */}
+              <div className="border-t border-dashed border-slate-300 pt-2 flex items-center justify-between flex-wrap gap-2">
+                <span className="text-[11.5px] font-bold text-emerald-800 flex items-center gap-1.5">
+                  <span className="text-emerald-600">✔️</span> Direct In-Hand Salary Model
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Agreed amount is paid directly in-hand without any statutory allowance/PF/TDS deductions.
+                </span>
               </div>
 
               {/* Banking & Identity Details (For Realistic Payslip Generation & KYC) */}
