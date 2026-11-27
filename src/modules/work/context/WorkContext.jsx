@@ -207,6 +207,10 @@ export const WorkProvider = ({ children }) => {
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && (!parsed.date || parsed.date === today)) {
+            if (parsed.status === 'completed' || parsed.completedAt) {
+              try { localStorage.removeItem(k); } catch (_) {}
+              continue;
+            }
             return parsed;
           }
         }
@@ -953,6 +957,10 @@ export const WorkProvider = ({ children }) => {
     if (activeTimer && activeTimer.timerRunning && activeTimer.status !== 'completed' && !activeTimer.completedAt && isTaskRunningForUser(activeTimer, currentUser)) {
       const matchInTasks = tasks.find(t => String(t._id || t.id) === String(activeTimer.taskId || activeTimer._id));
       if (matchInTasks) {
+        if (matchInTasks.status === 'completed' || matchInTasks.completedAt) {
+          saveActiveTimerSnapshot(null);
+          return null;
+        }
         return {
           ...matchInTasks,
           timerRunning: true,

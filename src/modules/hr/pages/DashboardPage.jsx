@@ -1897,9 +1897,16 @@ export const DashboardPage = () => {
         (Array.isArray(task.assignedMembers) && task.assignedMembers.length > 1);
 
       if (isMulti) {
+        const isDone = isTaskActuallyCompleted(task);
         const wTimer = getWorkerTaskTimer(task, effectiveTargetUser);
         const wBaseToday = getWorkerDailySessionSeconds(task, effectiveTargetUser, todayStr);
-        const wRunning = Boolean(displayedIsClockedIn && isRunningForTarget);
+        const wRunning = Boolean(
+          !isDone &&
+          displayedIsClockedIn &&
+          !displayedIsOnBreak &&
+          isRunningForTarget &&
+          (wTimer?.timerRunning || task.timerRunning)
+        );
         const wStartTs = Number(wTimer?.startedAt || (wRunning ? task.startedAt : 0) || 0);
         const todayMidnightMs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
         const wElapsed = (wRunning && wStartTs >= todayMidnightMs && wStartTs <= Date.now())
@@ -3386,7 +3393,13 @@ export const DashboardPage = () => {
             holidays={holidays}
             timesheets={timesheets}
             tasks={cleanTasks}
-            activeRunningTask={displayActiveTask || activeRunningTask}
+            activeRunningTask={
+              (displayActiveTask?.timerRunning && !isTaskActuallyCompleted(displayActiveTask))
+                ? displayActiveTask
+                : (activeRunningTask?.timerRunning && !isTaskActuallyCompleted(activeRunningTask))
+                  ? activeRunningTask
+                  : null
+            }
             formatSeconds={formatSeconds}
             isClockedIn={displayedIsClockedIn}
           />

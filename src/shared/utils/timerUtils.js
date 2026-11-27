@@ -620,10 +620,11 @@ export const calculateAutoOvertimeSeconds = ({
  */
 export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffectiveClockedIn = true, isEffectiveOnBreak = false) => {
   if (!task) return 0;
+  const isDone = task.status === 'completed' || Boolean(task.completedAt);
   const actualToday = getLocalDateString(new Date(nowMs));
   const targetDate = dateStr || actualToday;
   const isTargetToday = targetDate === actualToday;
-  const isRunningToday = Boolean(task.timerRunning && isTargetToday && isEffectiveClockedIn && !isEffectiveOnBreak);
+  const isRunningToday = Boolean(!isDone && task.timerRunning && isTargetToday && isEffectiveClockedIn && !isEffectiveOnBreak);
 
   // If liveTodaySeconds was already computed by WorkContext ticking loop for today, return directly
   if (isRunningToday && task.liveTodaySeconds !== undefined && task.liveTodaySeconds !== null) {
@@ -672,10 +673,13 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
  */
 export const sanitizeTaskDailySessions = (task) => {
   if (!task) return task;
-  // CRITICAL: While a task timer is actively running, NEVER fold live `todayWorkSeconds`
-  // or live `timerSeconds` back into frozen baselines (`accumulatedSeconds`, `accumulatedTodaySeconds`,
-  // `dailySessions[today]`), otherwise elapsed time gets double-counted every tick (2x+ speed)!
-  if (task.timerRunning) {
+  const isCompleted = task.status === 'completed' || Boolean(task.completedAt);
+  if (isCompleted && task.timerRunning) {
+    task = { ...task, timerRunning: false, startedAt: null };
+  }
+  // CRITICAL: While an active incomplete task timer is running, NEVER fold live todayWorkSeconds
+  // back into frozen baselines, otherwise elapsed time gets double-counted.
+  if (!isCompleted && task.timerRunning) {
     return task;
   }
 
@@ -1739,49 +1743,76 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     }
 
     let runningTaskId = null;
-    const isTimerValidForTarget = empActiveTimer && empActiveTimer.timerRunning && (empActiveTimer.date === actualToday || !empActiveTimer.date) && isClockedIn && !isOnBreak && isTaskRunningForUser(empActiveTimer, targetUser);
+    const isEmpActiveTimerCompleted = Boolean(
+      empActiveTimer && (
+        empActiveTimer.status === 'completed' ||
+        empActiveTimer.completedAt ||
+        empTasks.some(t => (String(t._id || t.id) === String(empActiveTimer.taskId || empActiveTimer._id) || (empActiveTimer.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(empActiveTimer.taskCode).trim().toLowerCase())) && (t.status === 'completed' || t.completedAt))
+      )
+    );
+
+    if (isEmpActiveTimerCompleted) {
+      try {
+        localStorage.removeItem(`ems_active_task_timer_${empUserKey}`);
+        localStorage.removeItem(`ems_active_task_timer_${targetUser._id}`);
+        if (targetUser.employeeCode) localStorage.removeItem(`ems_active_task_timer_${targetUser.employeeCode}`);
+      } catch (_) {}
+      empActiveTimer = null;
+    }
+
+    const isTimerValidForTarget = empActiveTimer && !isEmpActiveTimerCompleted && empActiveTimer.timerRunning && (empActiveTimer.date === actualToday || !empActiveTimer.date) && isClockedIn && !isOnBreak && isTaskRunningForUser(empActiveTimer, targetUser);
     if (isTimerValidForTarget) {
       runningTaskId = String(empActiveTimer.taskId || empActiveTimer._id);
       const targetTaskObj = empTasks.find(t => String(t._id || t.id) === runningTaskId || (empActiveTimer.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(empActiveTimer.taskCode).trim().toLowerCase()));
-      const isRunningMulti = Boolean(
-        targetTaskObj && (
-          (Array.isArray(targetTaskObj.assignedToIds) && targetTaskObj.assignedToIds.length > 1) ||
-          (Array.isArray(targetTaskObj.assignees) && targetTaskObj.assignees.length > 1) ||
-          (Array.isArray(targetTaskObj.assignedMembers) && targetTaskObj.assignedMembers.length > 1)
-        )
-      );
-      let liveSecs = 0;
-      if (isRunningMulti) {
-        const wTimer = getWorkerTaskTimer(targetTaskObj, targetUser);
-        const wBase = Math.max(
-          getWorkerDailySessionSeconds(targetTaskObj, targetUser, actualToday),
-          Number(empActiveTimer.accumulatedTodaySeconds ?? empActiveTimer.todayWorkSeconds ?? 0)
-        );
-        const wStart = Number(wTimer?.startedAt || empActiveTimer.startedAt || 0);
-        const wElapsed = (wStart >= todayMidnightMs && wStart <= Date.now())
-          ? Math.max(0, Math.floor((Date.now() - wStart) / 1000))
-          : 0;
-        liveSecs = wBase + wElapsed;
-      } else {
-        liveSecs = targetTaskObj
-          ? getTaskTodaySeconds(targetTaskObj, actualToday, Date.now(), isClockedIn, isOnBreak)
-          : getTaskTodaySeconds(empActiveTimer, actualToday, Date.now(), isClockedIn, isOnBreak);
-      }
+      const isTargetTaskDone = Boolean(targetTaskObj && (targetTaskObj.status === 'completed' || targetTaskObj.completedAt));
 
-      // Remove any completed row for the running task to avoid double-counting
-      tasksWorked = tasksWorked.filter(t => String(t.taskId) !== runningTaskId && t.taskCode !== empActiveTimer.taskCode);
-      tasksWorked.unshift({
-        taskId: runningTaskId,
-        taskCode: targetTaskObj?.taskCode || empActiveTimer.taskCode || 'TSK',
-        taskTitle: targetTaskObj?.title || empActiveTimer.title || 'Current Task',
-        projectName: targetTaskObj?.projectName || empActiveTimer.projectName || 'General Work',
-        durationText: formatSecondsToDigital(liveSecs),
-        durationSeconds: liveSecs,
-        status: 'in_progress',
-        isCompleted: false,
-        timerRunning: true,
-        memo: 'Active Timer Running Now 🟢'
-      });
+      if (isTargetTaskDone) {
+        try {
+          localStorage.removeItem(`ems_active_task_timer_${empUserKey}`);
+          localStorage.removeItem(`ems_active_task_timer_${targetUser._id}`);
+          if (targetUser.employeeCode) localStorage.removeItem(`ems_active_task_timer_${targetUser.employeeCode}`);
+        } catch (_) {}
+      } else {
+        const isRunningMulti = Boolean(
+          targetTaskObj && (
+            (Array.isArray(targetTaskObj.assignedToIds) && targetTaskObj.assignedToIds.length > 1) ||
+            (Array.isArray(targetTaskObj.assignees) && targetTaskObj.assignees.length > 1) ||
+            (Array.isArray(targetTaskObj.assignedMembers) && targetTaskObj.assignedMembers.length > 1)
+          )
+        );
+        let liveSecs = 0;
+        if (isRunningMulti) {
+          const wTimer = getWorkerTaskTimer(targetTaskObj, targetUser);
+          const wBase = Math.max(
+            getWorkerDailySessionSeconds(targetTaskObj, targetUser, actualToday),
+            Number(empActiveTimer.accumulatedTodaySeconds ?? empActiveTimer.todayWorkSeconds ?? 0)
+          );
+          const wStart = Number(wTimer?.startedAt || empActiveTimer.startedAt || 0);
+          const wElapsed = (wStart >= todayMidnightMs && wStart <= Date.now())
+            ? Math.max(0, Math.floor((Date.now() - wStart) / 1000))
+            : 0;
+          liveSecs = wBase + wElapsed;
+        } else {
+          liveSecs = targetTaskObj
+            ? getTaskTodaySeconds(targetTaskObj, actualToday, Date.now(), isClockedIn, isOnBreak)
+            : getTaskTodaySeconds(empActiveTimer, actualToday, Date.now(), isClockedIn, isOnBreak);
+        }
+
+        // Remove any completed row for the running task to avoid double-counting
+        tasksWorked = tasksWorked.filter(t => String(t.taskId) !== runningTaskId && t.taskCode !== empActiveTimer.taskCode);
+        tasksWorked.unshift({
+          taskId: runningTaskId,
+          taskCode: targetTaskObj?.taskCode || empActiveTimer.taskCode || 'TSK',
+          taskTitle: targetTaskObj?.title || empActiveTimer.title || 'Current Task',
+          projectName: targetTaskObj?.projectName || empActiveTimer.projectName || 'General Work',
+          durationText: formatSecondsToDigital(liveSecs),
+          durationSeconds: liveSecs,
+          status: 'in_progress',
+          isCompleted: false,
+          timerRunning: true,
+          memo: 'Active Timer Running Now 🟢'
+        });
+      }
     }
 
     // Also include paused tasks worked today that have sessions but no timesheet yet
@@ -1790,12 +1821,13 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
       const ptCode = pt.taskCode ? String(pt.taskCode).trim().toLowerCase() : '';
       if (runningTaskId && (ptId === runningTaskId || (ptCode && empActiveTimer?.taskCode && ptCode === String(empActiveTimer.taskCode).trim().toLowerCase()))) return;
 
+      const isDone = pt.status === 'completed' || Boolean(pt.completedAt);
       const isMultiAssignee = (Array.isArray(pt.assignedToIds) && pt.assignedToIds.length > 1) ||
         (Array.isArray(pt.assignees) && pt.assignees.length > 1) ||
         (Array.isArray(pt.assignedMembers) && pt.assignedMembers.length > 1);
 
       // If task is running right now: ONLY include if targetUser is the active worker!
-      if (pt.timerRunning && !isTaskRunningForUser(pt, targetUser)) {
+      if (!isDone && pt.timerRunning && !isTaskRunningForUser(pt, targetUser)) {
         return; // Running by another teammate! Do not attribute to targetUser
       }
 
@@ -1805,7 +1837,7 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
         .filter(ts => String(ts.taskId) === ptId || (ptCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === ptCode))
         .reduce((sum, ts) => Math.max(sum, Number(ts.totalDurationSeconds) || 0), 0);
 
-      const isMyRunning = Boolean((pt.timerRunning || workerTimer?.timerRunning) && isClockedIn && !isOnBreak && isTaskRunningForUser(pt, targetUser));
+      const isMyRunning = Boolean(!isDone && (pt.timerRunning || workerTimer?.timerRunning) && isClockedIn && !isOnBreak && isTaskRunningForUser(pt, targetUser));
 
       // If multi-assignee task: strictly require THIS user's own session, timesheet, or active worker timer!
       // NEVER attribute a teammate's dailySessions[today] or lastWorkerId to targetUser.
@@ -1828,7 +1860,6 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
               tasksWorked[rowIdx].durationText = formatSecondsToDigital(todaySecs);
             }
           } else {
-            const isDone = pt.status === 'completed' || !!pt.completedAt;
             tasksWorked.push({
               taskId: ptId,
               taskCode: pt.taskCode || 'TSK',
@@ -1838,7 +1869,7 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
               durationSeconds: todaySecs,
               status: isDone ? 'completed' : (isMyRunning ? 'in_progress' : 'on_hold'),
               isCompleted: isDone,
-              timerRunning: isMyRunning,
+              timerRunning: isDone ? false : isMyRunning,
               memo: isDone ? 'Completed Today' : `Work session (${formatSecondsToDigital(todaySecs)} logged)`
             });
           }
@@ -1850,7 +1881,7 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
         (pt.sessionDate === actualToday && (Number(pt.todayWorkSeconds) > 0 || Number(pt.accumulatedTodaySeconds) > 0)) ||
         baseWorkerToday > 0 ||
         tsSecs > 0;
-      const isRunningToday = pt.timerRunning && isClockedIn && isTaskRunningForUser(pt, targetUser);
+      const isRunningToday = Boolean(!isDone && pt.timerRunning && isClockedIn && isTaskRunningForUser(pt, targetUser));
       if (!hasSessionToday && !isRunningToday) return;
 
       const baseTaskSecs = getTaskTodaySeconds(pt, actualToday, Date.now(), isClockedIn, isOnBreak);
@@ -1867,7 +1898,6 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
             tasksWorked[rowIdx].durationText = formatSecondsToDigital(todaySecs);
           }
         } else {
-          const isDone = pt.status === 'completed' || !!pt.completedAt;
           tasksWorked.push({
             taskId: ptId,
             taskCode: pt.taskCode || 'TSK',
@@ -1877,7 +1907,7 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
             durationSeconds: todaySecs,
             status: isDone ? 'completed' : (pt.timerRunning ? 'in_progress' : 'on_hold'),
             isCompleted: isDone,
-            timerRunning: Boolean(pt.timerRunning && isClockedIn && isTaskRunningForUser(pt, targetUser)),
+            timerRunning: isDone ? false : Boolean(pt.timerRunning && isClockedIn && isTaskRunningForUser(pt, targetUser)),
             memo: isDone ? 'Completed Today' : `Work session (${formatSecondsToDigital(todaySecs)} logged)`
           });
         }

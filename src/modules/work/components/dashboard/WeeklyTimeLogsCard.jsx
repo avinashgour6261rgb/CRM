@@ -237,6 +237,15 @@ export const WeeklyTimeLogsCard = ({
 
     const isSelectedDayToday = selectedDayLogData?.isCurrentDay || selectedDayLogData?.date === todayStr;
 
+    // Strict Live indicator: ONLY pulse/display "Live" if a task is legitimately running right now!
+    const isAnyTaskRunningToday = Boolean(
+        isEffectiveClockedIn &&
+        (
+            (activeRunningTask && activeRunningTask.timerRunning && activeRunningTask.status !== 'completed' && !activeRunningTask.completedAt) ||
+            (selectedDayLogData?.tasksWorked && selectedDayLogData.tasksWorked.some(t => t.timerRunning && t.status !== 'completed' && !t.isCompleted))
+        )
+    );
+
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 sm:px-4.5 flex-1 flex flex-col justify-between gap-3 shadow-xs">
             {/* Header: Title + Pill Badge */}
@@ -319,8 +328,8 @@ export const WeeklyTimeLogsCard = ({
                     <strong className="text-slate-900 dark:text-white font-extrabold font-mono tabular-nums">
                         {selectedDayLogData?.durationText || '0h 00m'}
                     </strong>
-                    {isSelectedDayToday && selectedDayLogData?.durationSeconds > 0 && (
-                        <span className="ml-1 text-[10px] text-green-600 dark:text-green-400 font-bold">
+                    {isSelectedDayToday && isAnyTaskRunningToday && (
+                        <span className="ml-1 text-[10px] text-green-600 dark:text-green-400 font-bold animate-pulse">
                             ● Live
                         </span>
                     )}
