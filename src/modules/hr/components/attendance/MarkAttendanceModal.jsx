@@ -79,6 +79,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
 
     await markAttendanceRecord({
       ...formData,
+      isLate: formData.status === 'present' ? false : (formData.status === 'late' ? true : (initialData?.isLate || false)),
       isAdminOverride: isPrivileged,
       waiveLatePenalty: isPrivileged && formData.status === 'present',
       adminId: adminIdentifier,

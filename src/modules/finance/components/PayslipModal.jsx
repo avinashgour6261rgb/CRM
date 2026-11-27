@@ -174,39 +174,174 @@ export const PayslipModal = ({
 
   return (
     <>
-      {/* Dedicated Print Stylesheet: Fits on standard single A4 page cleanly */}
+      {/* Dedicated Print Stylesheet: Fits on standard single A4 page cleanly with pure white background */}
       <style>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm 12mm;
+            margin: 8mm 10mm;
           }
+
+          /* Force browser page and root to clean white */
+          html, body {
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            height: auto !important;
+            min-height: 100% !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Hide all other app elements outside this payslip modal */
           body * {
             visibility: hidden !important;
           }
-          .payslip-print-container, .payslip-print-container * {
+
+          .payslip-modal-backdrop,
+          .payslip-modal-backdrop *,
+          .payslip-modal-card,
+          .payslip-modal-card *,
+          .payslip-print-container,
+          .payslip-print-container * {
             visibility: visible !important;
           }
+
+          /* Remove dark overlay backdrop completely in print */
+          .payslip-modal-backdrop {
+            position: static !important;
+            display: block !important;
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+            z-index: auto !important;
+          }
+
+          .payslip-modal-card {
+            position: static !important;
+            display: block !important;
+            max-width: 100% !important;
+            max-height: none !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+
           .payslip-print-container {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+            position: static !important;
+            display: block !important;
             width: 100% !important;
             max-width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
             box-shadow: none !important;
+            border: none !important;
             padding: 0 !important;
             margin: 0 !important;
             background: #ffffff !important;
+            background-color: #ffffff !important;
+            color: #0f172a !important;
             font-size: 11px !important;
           }
+
+          /* Ensure high-contrast dark text and clean light cards regardless of dark mode */
+          .payslip-print-container * {
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            background-image: none !important;
+          }
+
+          .payslip-print-container .print-letterhead {
+            border-bottom: 2.5px solid #1e3a8a !important;
+          }
+
+          .payslip-print-container .print-brand-title {
+            color: #1e3a8a !important;
+          }
+
+          .payslip-print-container .print-info-grid {
+            background-color: #f8fafc !important;
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+          }
+
+          .payslip-print-container .print-table {
+            border: 1.5px solid #cbd5e1 !important;
+          }
+
+          .payslip-print-container .print-th {
+            background-color: #f1f5f9 !important;
+            background: #f1f5f9 !important;
+            border-bottom: 1.5px solid #cbd5e1 !important;
+            color: #0f172a !important;
+            font-weight: 800 !important;
+          }
+
+          .payslip-print-container .print-net-banner {
+            background-color: #ecfdf5 !important;
+            background: #ecfdf5 !important;
+            border: 1.5px solid #a7f3d0 !important;
+          }
+
+          .payslip-print-container .print-net-title {
+            color: #065f46 !important;
+          }
+
+          .payslip-print-container .print-net-amount {
+            color: #047857 !important;
+          }
+
+          .payslip-print-container .print-badge {
+            background-color: #dbeafe !important;
+            background: #dbeafe !important;
+            color: #1e3a8a !important;
+            border: 1px solid #bfdbfe !important;
+          }
+
+          .payslip-print-container .print-emerald-text {
+            color: #047857 !important;
+          }
+
+          .payslip-print-container .print-rose-text {
+            color: #b91c1c !important;
+          }
+
+          .payslip-print-container .print-amber-text {
+            color: #b45309 !important;
+          }
+
+          .payslip-print-container .print-purple-text {
+            color: #7e22ce !important;
+          }
+
           .no-print {
             display: none !important;
+            visibility: hidden !important;
           }
         }
       `}</style>
 
-      <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-3 sm:p-4 animate-fade-in" onClick={handleBackdropClick}>
-        <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[94vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col" onClick={handleCardClick}>
+      <div className="payslip-modal-backdrop fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-3 sm:p-4 animate-fade-in" onClick={handleBackdropClick}>
+        <div className="payslip-modal-card popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[94vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col" onClick={handleCardClick}>
           {/* Modal Action Header (Excluded from Print) */}
           <div className="shrink-0 no-print p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 flex-wrap gap-2.5 rounded-t-2xl">
             <div className="flex items-center gap-2">
@@ -278,7 +413,7 @@ export const PayslipModal = ({
           <div ref={printRef} className="payslip-print-container p-6 sm:p-10 flex-1 overflow-y-auto text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900">
             
             {/* 1. Official Corporate Letterhead */}
-            <div className="flex justify-between items-start border-b-[2.5px] border-blue-900 pb-3.5 mb-4">
+            <div className="print-letterhead flex justify-between items-start border-b-[2.5px] border-blue-900 pb-3.5 mb-4">
               <div className="flex-1 pr-4 flex items-start gap-3.5">
                 {companyInfo.companyLogo && (
                   <img
@@ -288,7 +423,7 @@ export const PayslipModal = ({
                   />
                 )}
                 <div>
-                  <h1 className="text-[20px] font-extrabold text-blue-900 dark:text-blue-300 m-0 uppercase tracking-wide leading-tight">
+                  <h1 className="print-brand-title text-[20px] font-extrabold text-blue-900 dark:text-blue-300 m-0 uppercase tracking-wide leading-tight">
                     {companyInfo.companyName || 'INFORAG TECHNOLOGIES PVT. LTD.'}
                   </h1>
                   {companyInfo.tagline && (
@@ -310,7 +445,7 @@ export const PayslipModal = ({
               </div>
 
               <div className="text-right shrink-0">
-                <div className="inline-block px-3 py-1 rounded-md bg-blue-100 text-blue-900 text-xs font-black tracking-wider">
+                <div className="print-badge inline-block px-3 py-1 rounded-md bg-blue-100 text-blue-900 text-xs font-black tracking-wider">
                   PAYSLIP / SALARY SLIP
                 </div>
                 <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">
@@ -323,7 +458,7 @@ export const PayslipModal = ({
             </div>
 
             {/* 2. Employee Profile & Statutory Identifiers Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 sm:px-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-300 dark:border-slate-700 mb-4 text-xs">
+            <div className="print-info-grid grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 sm:px-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-300 dark:border-slate-700 mb-4 text-xs">
               {/* Column 1: Employee Particulars */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between">
@@ -384,11 +519,11 @@ export const PayslipModal = ({
             </div>
 
             {/* 3. Earnings & Deductions Table (Direct In-Hand Salary Basis) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 border-[1.5px] border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden mb-4">
+            <div className="print-table grid grid-cols-1 sm:grid-cols-2 border-[1.5px] border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden mb-4">
               {/* Earnings Column */}
               <div className="sm:border-r-[1.5px] sm:border-slate-300 dark:sm:border-slate-700">
-                <div className="p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
-                  <span>EARNINGS (उपलब्धियां)</span>
+                <div className="print-th p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
+                  <span>EARNINGS</span>
                   <span>AMOUNT (₹)</span>
                 </div>
                 <div className="p-3 px-3.5 text-xs flex flex-col gap-2 min-h-[140px]">
@@ -411,8 +546,8 @@ export const PayslipModal = ({
 
               {/* Deductions Column */}
               <div>
-                <div className="p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
-                  <span>ATTENDANCE DEDUCTIONS (कटौतियां)</span>
+                <div className="print-th p-2 px-3.5 bg-slate-100 dark:bg-slate-800 font-extrabold text-xs border-b border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 flex justify-between">
+                  <span>ATTENDANCE DEDUCTIONS (LOP)</span>
                   <span>AMOUNT (₹)</span>
                 </div>
                 <div className="p-3 px-3.5 text-xs flex flex-col gap-2 min-h-[140px]">
@@ -469,12 +604,12 @@ export const PayslipModal = ({
             </div>
 
             {/* 4. Net Salary & Words Banner */}
-            <div className="p-3.5 sm:px-4 bg-emerald-50 dark:bg-emerald-950/40 border-[1.5px] border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-between mb-4 flex-wrap gap-2.5">
+            <div className="print-net-banner p-3.5 sm:px-4 bg-emerald-50 dark:bg-emerald-950/40 border-[1.5px] border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-between mb-4 flex-wrap gap-2.5">
               <div>
-                <span className="text-[10.5px] font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                <span className="print-net-title text-[10.5px] font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                   NET TAKE-HOME SALARY PAYABLE (A - B)
                 </span>
-                <div className="text-[24px] font-black text-emerald-950 dark:text-emerald-100 leading-tight">
+                <div className="print-net-amount text-[24px] font-black text-emerald-950 dark:text-emerald-100 leading-tight">
                   ₹{payroll.netSalary.toLocaleString('en-IN')}
                 </div>
                 <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 mt-0.5 italic">

@@ -72,6 +72,7 @@ export const PayrollPage = () => {
 
   const [activeEmployeeForRevision, setActiveEmployeeForRevision] = useState(null);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
+  const [revisionTick, setRevisionTick] = useState(0);
 
   // Track batch disbursed months synced with MongoDB CompanySettings
   const [disbursedMonths, setDisbursedMonths] = useState(() => {
@@ -119,14 +120,17 @@ export const PayrollPage = () => {
 
   // Listen for global salary revision events across pages
   useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.detail?.employeeCode && e.detail?.salary) {
-        // Trigger React re-render
-        setSelectedMonth(prev => prev);
-      }
+    const handleStorageChange = () => {
+      setRevisionTick(t => t + 1);
     };
     window.addEventListener('hrms_salary_update', handleStorageChange);
-    return () => window.removeEventListener('hrms_salary_update', handleStorageChange);
+    window.addEventListener('hrms_storage_change', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('hrms_salary_update', handleStorageChange);
+      window.removeEventListener('hrms_storage_change', handleStorageChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const handleSalaryUpdated = (empCode, updatedData) => {
@@ -138,6 +142,15 @@ export const PayrollPage = () => {
         startingSalary: updatedData.monthlyGross,
         annualCTC: updatedData.annualCTC
       });
+    }
+    setRevisionTick(t => t + 1);
+    if (activeEmployeeForPayslip && (activeEmployeeForPayslip.employeeCode === empCode || activeEmployeeForPayslip._id === empCode)) {
+      setActiveEmployeeForPayslip(prev => ({
+        ...prev,
+        salary: updatedData,
+        startingSalary: updatedData.monthlyGross,
+        annualCTC: updatedData.annualCTC
+      }));
     }
   };
 

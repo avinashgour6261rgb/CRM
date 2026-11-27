@@ -31,7 +31,23 @@ export const MONTH_NAMES = [
  * Direct In-Hand model: No allowances or statutory deductions.
  */
 export const resolveDirectSalary = (emp, salaryData = null) => {
-  const s = salaryData || emp?.salary || {};
+  let cachedSalary = null;
+  const empKey = emp?.employeeCode || emp?._id;
+  if (empKey && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const mapStr = localStorage.getItem('EMS_SALARY_MAP');
+      if (mapStr) {
+        const map = JSON.parse(mapStr);
+        if (map[empKey]) cachedSalary = map[empKey];
+        else if (emp?.employeeCode && map[emp.employeeCode]) cachedSalary = map[emp.employeeCode];
+        else if (emp?._id && map[emp._id]) cachedSalary = map[emp._id];
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const s = salaryData || cachedSalary || emp?.salary || {};
   let gross = Number(s.monthlyGross) || Number(s.netSalary) || Number(s.basic) || 0;
 
   if (!gross) {

@@ -220,7 +220,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
             </div>
             <div>
               <h3 className="text-[15.5px] font-extrabold text-slate-900 dark:text-slate-100 m-0">
-                Edit & Revise Salary (वेतन संशोधन)
+                Edit & Revise Salary
               </h3>
               <p className="m-0 text-[11.5px] text-slate-500 dark:text-slate-400">
                 Easily adjust compensation (Hike 📈 or Reduction 📉) with auto-balanced statutory recalculation.
@@ -290,7 +290,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                     <TrendingUp size={18} />
                   </div>
                   <div>
-                    <div className="text-[13px] font-extrabold">📈 Increase / Hike (वेतन वृद्धि)</div>
+                    <div className="text-[13px] font-extrabold">📈 Increase / Hike</div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">Annual appraisal, merit increment, promotion</div>
                   </div>
                 </button>
@@ -316,7 +316,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                     <TrendingDown size={18} />
                   </div>
                   <div>
-                    <div className="text-[13px] font-extrabold">📉 Reduce / Deduct (वेतन कटौती / कमी)</div>
+                    <div className="text-[13px] font-extrabold">📉 Reduce / Deduct</div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">Role restructuring, demotion, PIP alignment</div>
                   </div>
                 </button>
