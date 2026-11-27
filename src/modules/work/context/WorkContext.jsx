@@ -4054,7 +4054,11 @@ export const WorkProvider = ({ children }) => {
 
       const isMultiAssignee = (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds.length > 1) ||
         (Array.isArray(targetTask.assignees) && targetTask.assignees.length > 1);
-      const completerWorkerId = targetTask.activeWorkerId || activeTimer?.activeWorkerId || currentUser?._id;
+      const activeSnapMatches = activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId));
+      const completerWorkerId = targetTask.activeWorkerId ||
+        (activeSnapMatches ? activeTimer?.activeWorkerId : null) ||
+        targetTask.lastWorkerId ||
+        currentUser?._id;
       const completerObj = (employees || []).find(e =>
         String(e._id) === String(completerWorkerId) ||
         String(e.employeeCode) === String(completerWorkerId)
@@ -4182,14 +4186,12 @@ export const WorkProvider = ({ children }) => {
       }
 
       // Log Today's Work to Timesheets ONLY for the worker who actually completed/worked on the task today!
-      const activeWorkerId = targetTask.activeWorkerId || activeTimer?.activeWorkerId || currentUser?._id;
-      const workerObj = (employees || []).find(e =>
-        String(e._id) === String(activeWorkerId) ||
-        String(e.employeeCode) === String(activeWorkerId)
-      ) || currentUser;
-      const workerId = isForOtherEmployee ? assignedEmpId : (workerObj?._id || userKey);
-      const workerCode = isForOtherEmployee ? (targetTask.assignedToCode || '') : (workerObj?.employeeCode || '');
-      const workerName = isForOtherEmployee ? assignedEmpName : (workerObj?.name || currentUser?.name || 'User');
+      const activeWorkerId = completerWorkerId;
+      const workerObj = completerObj;
+      const useActualWorker = Boolean(targetTask.activeWorkerId || targetTask.lastWorkerId || !isForOtherEmployee);
+      const workerId = useActualWorker ? (workerObj?._id || userKey) : assignedEmpId;
+      const workerCode = useActualWorker ? (workerObj?.employeeCode || '') : (targetTask.assignedToCode || '');
+      const workerName = useActualWorker ? (workerObj?.name || currentUser?.name || 'User') : assignedEmpName;
       const workerKey = String(workerCode || workerId);
 
       let durationToLogForCompleter = 0;

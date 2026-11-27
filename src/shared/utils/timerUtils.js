@@ -1545,6 +1545,36 @@ export const isTaskRunningForUser = (task, user) => {
  * 3. Physical shift clamping (Task time cannot exceed physical shift time clocked in today).
  * 4. Deduplicated timesheets so multiple saves don't inflate hours.
  */
+const hasAnyWorkerSessionForDate = (task, dateStr) => {
+  if (!task || !dateStr) return false;
+  if (task.assigneeSessions && typeof task.assigneeSessions === 'object') {
+    for (const val of Object.values(task.assigneeSessions)) {
+      if (val && typeof val === 'object' && Number(val[dateStr]) > 0) {
+        return true;
+      }
+    }
+  }
+  if (task.assigneeTimers && typeof task.assigneeTimers === 'object') {
+    for (const t of Object.values(task.assigneeTimers)) {
+      if (t && typeof t === 'object' && t.sessionDate === dateStr && (Number(t.todayWorkSeconds) > 0 || t.timerRunning)) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+const isLastOrActiveWorkerSomeoneElse = (task, user) => {
+  if (!task || !user) return false;
+  const workerId = task.activeWorkerId || task.activeUserId || task.lastWorkerId;
+  if (!workerId) return false;
+  const wStr = String(workerId).trim().toLowerCase();
+  const userIds = [user._id, user.id, user.employeeCode, user.email, user.username]
+    .filter(Boolean)
+    .map(s => String(s).trim().toLowerCase());
+  return !userIds.includes(wStr);
+};
+
 export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) => {
   if (!targetUser) {
     return {
@@ -1634,15 +1664,20 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     if (!empMatches) return false;
 
     // Cross-verification: If timesheet references a task in the tasks list,
-    // verify it is actually assigned to targetUser!
-    // If it belongs to someone else (e.g. TSK-8 belongs to Sandeep), REJECT IT!
+    // verify it actually belongs to targetUser's work (either assigned OR worked by targetUser)!
+    // Reject if another worker recorded all the per-worker sessions on that date and targetUser has 0.
     if (ts.taskId || ts.taskCode) {
       const refTask = allTasks.find(t =>
         (ts.taskId && String(t._id || t.id) === String(ts.taskId)) ||
         (ts.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(ts.taskCode).trim().toLowerCase())
       );
       if (refTask) {
-        if (!isTaskAssignedToUser(refTask, targetUser)) {
+        const workedByTarget = getWorkerDailySessionSeconds(refTask, targetUser, effectiveDate) > 0 || isTaskRunningForUser(refTask, targetUser);
+        const hasPerWorkerData = hasAnyWorkerSessionForDate(refTask, effectiveDate);
+        if (hasPerWorkerData && !workedByTarget) {
+          return false;
+        }
+        if (!workedByTarget && !isTaskAssignedToUser(refTask, targetUser)) {
           return false;
         }
       }
@@ -1727,7 +1762,11 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     memo: ts.notes || ts.memo || 'Completed Task Timesheet'
   }));
 
-  const empTasks = allTasks.filter(t => isTaskAssignedToUser(t, targetUser));
+  const empTasks = allTasks.filter(t =>
+    isTaskAssignedToUser(t, targetUser) ||
+    isTaskRunningForUser(t, targetUser) ||
+    getWorkerDailySessionSeconds(t, targetUser, effectiveDate) > 0
+  );
 
   // 3. For today: merge live ticking or paused tasks worked today that haven't been submitted to timesheets yet
   if (isToday) {
@@ -1777,7 +1816,8 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
           targetTaskObj && (
             (Array.isArray(targetTaskObj.assignedToIds) && targetTaskObj.assignedToIds.length > 1) ||
             (Array.isArray(targetTaskObj.assignees) && targetTaskObj.assignees.length > 1) ||
-            (Array.isArray(targetTaskObj.assignedMembers) && targetTaskObj.assignedMembers.length > 1)
+            (Array.isArray(targetTaskObj.assignedMembers) && targetTaskObj.assignedMembers.length > 1) ||
+            hasAnyWorkerSessionForDate(targetTaskObj, actualToday)
           )
         );
         let liveSecs = 0;
@@ -1838,10 +1878,14 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
         .reduce((sum, ts) => Math.max(sum, Number(ts.totalDurationSeconds) || 0), 0);
 
       const isMyRunning = Boolean(!isDone && (pt.timerRunning || workerTimer?.timerRunning) && isClockedIn && !isOnBreak && isTaskRunningForUser(pt, targetUser));
+      const useWorkerIsolation = isMultiAssignee ||
+        hasAnyWorkerSessionForDate(pt, actualToday) ||
+        (!isDone && pt.timerRunning && !isTaskRunningForUser(pt, targetUser)) ||
+        isLastOrActiveWorkerSomeoneElse(pt, targetUser);
 
-      // If multi-assignee task: strictly require THIS user's own session, timesheet, or active worker timer!
+      // If multi-assignee OR per-worker sessions/handover exist: strictly require THIS user's own session, timesheet, or active worker timer!
       // NEVER attribute a teammate's dailySessions[today] or lastWorkerId to targetUser.
-      if (isMultiAssignee) {
+      if (useWorkerIsolation) {
         if (!isMyRunning && baseWorkerToday === 0 && tsSecs === 0) {
           return;
         }
@@ -1921,7 +1965,10 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
       const isMultiAssignee = (Array.isArray(pt.assignedToIds) && pt.assignedToIds.length > 1) ||
         (Array.isArray(pt.assignees) && pt.assignees.length > 1) ||
         (Array.isArray(pt.assignedMembers) && pt.assignedMembers.length > 1);
-      const pastDaySecs = isMultiAssignee
+      const usePastWorkerIsolation = isMultiAssignee ||
+        hasAnyWorkerSessionForDate(pt, effectiveDate) ||
+        isLastOrActiveWorkerSomeoneElse(pt, targetUser);
+      const pastDaySecs = usePastWorkerIsolation
         ? getWorkerDailySessionSeconds(pt, targetUser, effectiveDate)
         : Math.max(getTaskTodaySeconds(pt, effectiveDate, Date.now(), false, false), getWorkerDailySessionSeconds(pt, targetUser, effectiveDate));
       if (pastDaySecs > 0) {
