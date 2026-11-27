@@ -164,7 +164,7 @@ export const SubmitResignationModal = ({ isOpen, onClose }) => {
                   </span>
                 </div>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 m-0 leading-relaxed">
-                  Aapka resignation request accept aur approve ho gaya hai. Higher Authorities have finalized your separation schedule and active notice period.
+                  Your resignation request has been accepted and approved. Higher Authorities have finalized your separation schedule and active notice period.
                 </p>
               </div>
             </div>
