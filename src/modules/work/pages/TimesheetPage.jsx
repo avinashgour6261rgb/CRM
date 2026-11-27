@@ -118,7 +118,12 @@ export const TimesheetPage = () => {
   // Statistics calculation strictly scoped to user view
   const totalSeconds = displayTimesheets.reduce((acc, curr) => acc + (curr.totalDurationSeconds || 0), 0);
   const totalHoursLogged = (totalSeconds / 3600).toFixed(1);
-  const activeSessionsCount = displayTimesheets.filter(t => t.status === 'active').length + (activeRunningTask ? 1 : 0);
+  const activeSessionsCount = React.useMemo(() => {
+    if (isPrivileged) {
+      return (tasks || []).filter(t => t.timerRunning && t.status !== 'completed' && !t.completedAt).length;
+    }
+    return activeRunningTask ? 1 : 0;
+  }, [isPrivileged, tasks, activeRunningTask]);
   const uniqueEmployees = new Set(displayTimesheets.map(t => t.employeeId || t.employeeName)).size;
 
   // Export CSV strictly from scoped timesheets

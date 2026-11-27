@@ -42,7 +42,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, getIstTimeString, readTimerStorage, normalizePunchSessions, performShiftClockOut, isTaskRunningForUser, getWorkerTaskTimer, getWorkerDailySessionSeconds } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, getIstTimeString, readTimerStorage, normalizePunchSessions, performShiftClockOut, isTaskRunningForUser, getWorkerTaskTimer, getWorkerDailySessionSeconds, getUserDailyTaskBreakdown } from '../../../shared/utils/timerUtils';
 import { exportToCSV } from '../../../shared/utils/exportUtils';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
@@ -1222,31 +1222,6 @@ export const TeamOperationsPage = () => {
           isLive: true
         });
       }
-
-      // Tasks worked today (strictly today's tasks)
-      const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
-      empTasks.forEach(pt => {
-        const isCompletedToday = pt.completedOn === todayStr || (pt.completedAt && String(pt.completedAt).startsWith(todayStr));
-        const isWorkedToday = (pt.dailySessions && Number(pt.dailySessions[todayStr]) > 0) || (pt.sessionDate === todayStr && Number(pt.todayWorkSeconds) > 0) || isCompletedToday || (pt.timerRunning && empState.isClockedIn);
-        if (!isWorkedToday) return;
-
-        const todaySecs = getTaskTodaySeconds(pt, todayStr, Date.now(), empState.isClockedIn, empState.isOnBreak);
-        if (todaySecs > 0) {
-          const isDone = pt.status === 'completed';
-          tasksWorked.push({
-            taskId: pt._id,
-            taskCode: pt.taskCode || 'TSK',
-            taskTitle: pt.title,
-            projectName: pt.projectName || 'General Work',
-            durationText: formatSeconds(todaySecs),
-            durationSeconds: todaySecs,
-            status: isDone ? 'completed' : (pt.timerRunning ? 'in_progress' : 'on_hold'),
-            isCompleted: isDone,
-            timerRunning: Boolean(pt.timerRunning && empState.isClockedIn),
-            memo: isDone ? 'Completed Today' : `Work session (${formatSeconds(todaySecs)} logged)`
-          });
-        }
-      });
     } else {
       // Historical Date calculations
       loginTime = attRec?.clockInTime || attRec?.clockIn || '--';
@@ -1289,57 +1264,21 @@ export const TeamOperationsPage = () => {
           isLive: false
         }));
       }
-
-      // Timesheets for targetDate
-      const allTimesheets = getCollection(KEYS.TIMESHEETS, []);
-      const userTs = allTimesheets.filter(ts =>
-        ts.date === targetDate && (
-          (empId && (String(ts.employeeId) === empId || String(ts.userId) === empId)) ||
-          (empCode && String(ts.employeeId) === empCode) ||
-          (empName && String(ts.employeeName).trim().toLowerCase() === empName.trim().toLowerCase())
-        )
-      );
-
-      userTs.forEach(ts => {
-        const dur = Number(ts.totalDurationSeconds) || Math.round((parseFloat(ts.hours) || 0) * 3600);
-        tasksWorked.push({
-          taskId: ts.taskId || ts._id,
-          taskCode: ts.taskCode || 'TSK',
-          taskTitle: ts.taskTitle || ts.title || 'Task',
-          projectName: ts.projectName || 'General Work',
-          durationSeconds: dur,
-          durationText: ts.totalDurationText || formatTimeDurationSafe(dur),
-          status: ts.status || 'completed',
-          isCompleted: true,
-          memo: ts.memo || 'Timesheet logged'
-        });
-      });
-
-      // Also include any tasks with session recorded on this date not captured in timesheets
-      const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
-      empTasks.forEach(pt => {
-        const ptId = String(pt._id || pt.id);
-        const alreadyInTs = tasksWorked.some(t => String(t.taskId) === ptId || (pt.taskCode && t.taskCode === pt.taskCode));
-        if (alreadyInTs) return;
-        const sessSecs = (pt.dailySessions && Number(pt.dailySessions[targetDate])) || (pt.sessionDate === targetDate ? Number(pt.todayWorkSeconds || 0) : 0);
-        if (sessSecs > 0) {
-          tasksWorked.push({
-            taskId: ptId,
-            taskCode: pt.taskCode || 'TSK',
-            taskTitle: pt.title,
-            projectName: pt.projectName || 'General Work',
-            durationSeconds: sessSecs,
-            durationText: formatSeconds(sessSecs),
-            status: pt.status || 'in_progress',
-            isCompleted: Boolean(pt.status === 'completed'),
-            memo: `Worked on ${targetDate}`
-          });
-        }
-      });
     }
 
-    const totalTaskSeconds = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
-    const totalTaskDurationText = formatSeconds(totalTaskSeconds);
+    // Tasks worked on targetDate via Canonical SSOT Engine
+    const allTimesheets = getCollection(KEYS.TIMESHEETS, []);
+    const taskBreakdown = getUserDailyTaskBreakdown(emp, targetDate, {
+      tasks,
+      timesheets: allTimesheets,
+      isClockedIn: isCurrentDay ? Boolean(isClockedIn) : false,
+      isOnBreak: isCurrentDay ? Boolean(isOnBreak) : false,
+      shiftSeconds: workSecs,
+      clampToShift: false
+    });
+    tasksWorked = taskBreakdown.tasksWorked || [];
+    const totalTaskSeconds = taskBreakdown.totalTaskSeconds || 0;
+    const totalTaskDurationText = taskBreakdown.totalTaskDurationText || formatTimeDurationSafe(totalTaskSeconds);
 
     const logData = {
       date: targetDate,
@@ -1470,50 +1409,17 @@ export const TeamOperationsPage = () => {
         breakHistory = Array.isArray(attRec?.breakHistory) ? attRec.breakHistory : [];
       }
 
-      // 5. Tasks worked on targetDate
-      let tasksWorked = [];
-      const userTs = allTimesheets.filter(ts =>
-        ts.date === targetDate && (
-          (empId && (String(ts.employeeId) === empId || String(ts.userId) === empId)) ||
-          (empCode && String(ts.employeeId) === empCode) ||
-          (empName && String(ts.employeeName).trim().toLowerCase() === empName.trim().toLowerCase())
-        )
-      );
-
-      userTs.forEach(ts => {
-        const dur = Number(ts.totalDurationSeconds) || Math.round((parseFloat(ts.hours) || 0) * 3600);
-        tasksWorked.push({
-          taskId: ts.taskId || ts._id,
-          taskCode: ts.taskCode || 'TSK',
-          taskTitle: ts.taskTitle || ts.title || 'Task',
-          projectName: ts.projectName || 'General Work',
-          durationSeconds: dur,
-          durationText: ts.totalDurationText || formatTimeDurationSafe(dur),
-          status: ts.status || 'completed'
-        });
+      // 5. Tasks worked on targetDate via Canonical SSOT Engine
+      const taskBreakdown = getUserDailyTaskBreakdown(emp, targetDate, {
+        tasks,
+        timesheets: allTimesheets,
+        isClockedIn: isToday ? Boolean(empState?.isClockedIn) : false,
+        isOnBreak: isToday ? Boolean(empState?.isOnBreak) : false,
+        shiftSeconds: workSecs,
+        clampToShift: false
       });
-
-      if (isToday) {
-        const empState = getEmployeeTodayState(emp);
-        if (empState.runningTask && empState.runningTask.timerRunning) {
-          const rt = empState.runningTask;
-          const alreadyIn = tasksWorked.some(t => String(t.taskId) === String(rt.taskId || rt._id));
-          if (!alreadyIn) {
-            tasksWorked.push({
-              taskId: rt.taskId || rt._id,
-              taskCode: rt.taskCode || 'TSK',
-              taskTitle: rt.title || 'Active Task',
-              projectName: rt.projectName || 'General Work',
-              durationSeconds: rt.liveTaskSecs || 0,
-              durationText: formatTimeDurationSafe(rt.liveTaskSecs || 0),
-              status: 'in_progress',
-              isLive: true
-            });
-          }
-        }
-      }
-
-      const totalTaskSeconds = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
+      const tasksWorked = taskBreakdown.tasksWorked || [];
+      const totalTaskSeconds = taskBreakdown.totalTaskSeconds || 0;
       const isTaskExceedingShift = workSecs > 0 && totalTaskSeconds > (workSecs + 300);
       const effectiveShiftWorkSecs = Math.max(workSecs, totalTaskSeconds);
 
@@ -1569,7 +1475,7 @@ export const TeamOperationsPage = () => {
         totalDiscrepancies
       }
     };
-  }, [selectedAuditDate, todayStr, employees, attendance, leaves, selectedAuditEmpId, auditSearchQuery, getEmployeeTodayState]);
+  }, [selectedAuditDate, todayStr, employees, attendance, leaves, selectedAuditEmpId, auditSearchQuery, getEmployeeTodayState, tasks, syncTick]);
 
   // 6. Export Audit CSV
   const handleExportAuditCSV = () => {
