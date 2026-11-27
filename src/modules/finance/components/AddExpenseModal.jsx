@@ -31,8 +31,6 @@ import { useModalUX } from '../../../shared/hooks/useModalUX';
 export const AddExpenseModal = ({ isOpen, onClose }) => {
   const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
 
-  if (!isOpen) return null;
-
   const { createExpense } = useCRM();
   const { currentUser } = useAuth();
   const { employees } = useHR();
