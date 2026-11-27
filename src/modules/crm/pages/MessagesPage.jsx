@@ -1117,14 +1117,6 @@ export const MessagesPage = () => {
                       <Monitor size={14} className={screenStream ? 'text-white' : 'text-blue-500'} />
                       <span className="hidden sm:inline">{screenStream ? 'Screen LIVE' : 'Share Screen'}</span>
                     </button>
-
-                    <button
-                      onClick={() => setIsNewConvOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#192644] hover:bg-slate-200 dark:hover:bg-[#203157] text-slate-700 dark:text-slate-200 border-0 text-xs font-bold cursor-pointer transition-colors"
-                    >
-                      <Plus size={14} />
-                      <span>New Chat</span>
-                    </button>
                   </div>
                 </div>
 
