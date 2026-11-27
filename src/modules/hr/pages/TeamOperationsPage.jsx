@@ -1355,14 +1355,15 @@ export const TeamOperationsPage = () => {
         )
       );
 
+      const empState = isToday ? getEmployeeTodayState(emp) : null;
+
       // 3. Status
       let status = 'not_clocked_in';
       if (leaveRec) {
         status = 'on_leave';
       } else if (attRec) {
         status = attRec.status || 'present';
-      } else if (isToday) {
-        const empState = getEmployeeTodayState(emp);
+      } else if (isToday && empState) {
         if (empState.isClockedIn) status = empState.isOnBreak ? 'break' : 'working';
         else if (empState.isClockedOut) status = 'clocked_out';
         else status = 'not_clocked_in';
@@ -1382,8 +1383,7 @@ export const TeamOperationsPage = () => {
       let punchSessions = [];
       let breakHistory = [];
 
-      if (isToday) {
-        const empState = getEmployeeTodayState(emp);
+      if (isToday && empState) {
         loginTime = empState.loginTime || '--';
         logoutTime = empState.clockOutTime || '--';
         workSecs = empState.workSecs || 0;
