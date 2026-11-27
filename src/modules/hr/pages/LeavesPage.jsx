@@ -30,7 +30,7 @@ import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
 import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
 import { ResignationsListPanel } from '../components/resignations/ResignationsListPanel';
-import { canApproveLeaves, canViewAllLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, canExportData } from '../../../shared/utils/permissionUtils';
+import { canApproveLeaves, canViewAllLeaves, isHRorAdmin, isAdmin, canReviewResignations, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
@@ -63,7 +63,14 @@ export const LeavesPage = () => {
       setPageTab('resignations');
     }
   }, [location.search]);
-  const pendingResignationsCount = (resignations || []).filter(r => r.status === 'pending').length;
+  const canSeeAllResignations = isHRorAdmin(currentUser) || isAdmin(currentUser) || canReviewResignations(currentUser);
+  const pendingResignationsCount = (resignations || []).filter(r => {
+    if (r.status !== 'pending') return false;
+    if (canSeeAllResignations) return true;
+    const myId = String(currentUser?._id || currentUser?.id || '');
+    const myCode = String(currentUser?.employeeCode || '').toUpperCase();
+    return (r.employeeId && String(r.employeeId) === myId) || (r.employeeCode && String(r.employeeCode).toUpperCase() === myCode);
+  }).length;
 
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);

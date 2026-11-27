@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useHR } from '../../context/HRContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
-import { isHRorAdmin, isAdmin } from '../../../../shared/utils/permissionUtils';
+import { isHRorAdmin, isAdmin, canReviewResignations } from '../../../../shared/utils/permissionUtils';
 import { ReviewResignationModal } from './ReviewResignationModal';
 import { SubmitResignationModal } from './SubmitResignationModal';
 import { EmployeeHandoverModal } from './EmployeeHandoverModal';
@@ -27,7 +27,7 @@ export const ResignationsListPanel = () => {
   const { currentUser: hrUser } = useHR();
   const currentUser = authUser || hrUser;
 
-  const isActorPrivileged = isHRorAdmin(currentUser) || isAdmin(currentUser);
+  const isActorPrivileged = isHRorAdmin(currentUser) || isAdmin(currentUser) || canReviewResignations(currentUser);
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'pending', 'approved', 'rejected', 'relieved'
@@ -36,10 +36,9 @@ export const ResignationsListPanel = () => {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
   // Scoped Resignations:
-  // Non-privileged users only see their own resignation; HR/Admin see all
-  const filteredResignations = useMemo(() => {
+  // Non-privileged users only see their own resignation; HR/Admin/authorized reviewers see all
+  const scopedResignations = useMemo(() => {
     let list = Array.isArray(resignations) ? [...resignations] : [];
-
     if (!isActorPrivileged) {
       const myId = String(currentUser?._id || currentUser?.id || '');
       const myCode = String(currentUser?.employeeCode || '').toUpperCase();
@@ -48,6 +47,11 @@ export const ResignationsListPanel = () => {
         (r.employeeCode && String(r.employeeCode).toUpperCase() === myCode)
       );
     }
+    return list;
+  }, [resignations, isActorPrivileged, currentUser]);
+
+  const filteredResignations = useMemo(() => {
+    let list = [...scopedResignations];
 
     if (filterStatus !== 'all') {
       if (filterStatus === 'relieved') {
@@ -68,10 +72,11 @@ export const ResignationsListPanel = () => {
     }
 
     return list;
-  }, [resignations, isActorPrivileged, currentUser, filterStatus, search]);
+  }, [scopedResignations, filterStatus, search]);
 
-  const pendingCount = (resignations || []).filter(r => r.status === 'pending').length;
-  const relievedCount = (resignations || []).filter(r => r.isRelieved).length;
+  const pendingCount = scopedResignations.filter(r => r.status === 'pending').length;
+  const approvedNoticeCount = scopedResignations.filter(r => r.status === 'approved' && !r.isRelieved).length;
+  const relievedCount = scopedResignations.filter(r => r.isRelieved).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -105,7 +110,7 @@ export const ResignationsListPanel = () => {
             <CheckCircle2 size={16} className="text-emerald-500" />
           </div>
           <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1.5">
-            {(resignations || []).filter(r => r.status === 'approved' && !r.isRelieved).length}
+            {approvedNoticeCount}
           </div>
           <span className="text-[11px] text-slate-400">Serving active notice period</span>
         </div>
