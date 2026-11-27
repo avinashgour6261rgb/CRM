@@ -16,7 +16,7 @@ import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isSocketConnected } from '../../../shared/services/socketService';
-import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, isLeaderOrAbove, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
 import { readTimerStorage, getTimerMirrorKeys, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser, isTaskRunningForUser, getWorkerTaskTimer, getWorkerDailySessionSeconds, getWorkerTotalSeconds, getMultiAssigneeCombinedSeconds } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
@@ -68,7 +68,7 @@ export const WorkProvider = ({ children }) => {
   const [timesheets, setTimesheets] = useState(() => {
     const raw = getCollection(KEYS.TIMESHEETS) || [];
     const auth = authUser || hrUser;
-    const isPriv = auth && (auth.isAdmin || auth.systemRole === 'admin' || auth.systemRole === 'hr' || auth.role === 'Administrator' || auth.role === 'HR Manager');
+    const isPriv = auth && (auth.isAdmin || auth.systemRole === 'admin' || auth.systemRole === 'hr' || auth.role === 'Administrator' || isHRorAdmin(auth));
     if (!isPriv && auth) {
       return raw.filter(ts =>
         ts.employeeId === auth._id ||
@@ -160,38 +160,6 @@ export const WorkProvider = ({ children }) => {
     return false;
   }, [userKey, currentUser]);
 
-  // Permission authorization helper: only Admin, HR, Assigner/Creator, or Assigned Member can control tasks
-  const canUserControlTask = useCallback((targetTask) => {
-    if (!targetTask || !currentUser) return false;
-    const isUserAdminOrHR = currentUser?.isAdmin ||
-      currentUser?.systemRole === 'admin' ||
-      currentUser?.systemRole === 'hr' ||
-      currentUser?.role === 'Administrator' ||
-      currentUser?.role === 'HR Manager' ||
-      isHRorAdmin(currentUser);
-    if (isUserAdminOrHR) return true;
-
-    // Check assigner / creator
-    const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase());
-    const creatorIds = [targetTask.assignedById, targetTask.assignedByCode].filter(Boolean).map(s => String(s).toLowerCase());
-    if (myIds.some(id => creatorIds.includes(id))) return true;
-    if (targetTask.assignedBy && currentUser?.name && targetTask.assignedBy.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) return true;
-
-    // Check assigned member (single or multi-assignee)
-    if (isTaskAssignedToMe(targetTask)) return true;
-
-    return false;
-  }, [currentUser, userKey, isTaskAssignedToMe]);
-
-  const isEventForMe = useCallback((e) => {
-    if (!e || !e.detail) return true;
-    const { userKey: evKey, employeeId: evId, employeeCode: evCode } = e.detail;
-    if (!evKey && !evId && !evCode) return true;
-    const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase().trim());
-    const evIds = [evKey, evId, evCode].filter(Boolean).map(s => String(s).toLowerCase().trim());
-    return myIds.some(id => evIds.includes(id));
-  }, [userKey, currentUser]);
-
   // Read active timer snapshot from storage strictly scoped to current user
   const getActiveTimerSnapshot = useCallback(() => {
     try {
@@ -220,6 +188,84 @@ export const WorkProvider = ({ children }) => {
       return null;
     }
   }, [activeTimerKey, currentUser]);
+
+  // Permission authorization helper:
+  // Admin, HR, Assigner/Creator, Assigned Member, Active Worker, or anyone working on the task can control it!
+  const canUserControlTask = useCallback((targetTask) => {
+    if (!targetTask || !currentUser) return false;
+
+    // 1. Admin or HR check (Role, SystemRole, or Department)
+    const isUserAdminOrHR = Boolean(
+      currentUser?.isAdmin ||
+      currentUser?.isSuperAdmin ||
+      currentUser?.isDelegatedAdmin ||
+      currentUser?.systemRole === 'admin' ||
+      currentUser?.systemRole === 'hr' ||
+      currentUser?.role === 'Administrator' ||
+      isHRorAdmin(currentUser)
+    );
+    if (isUserAdminOrHR) return true;
+
+    // 2. Assigner / Creator check
+    const myIds = [userKey, currentUser?._id, currentUser?.id, currentUser?.employeeCode, currentUser?.email]
+      .filter(Boolean).map(s => String(s).toLowerCase().trim());
+    const creatorIds = [targetTask.assignedById, targetTask.assignedByCode]
+      .filter(Boolean).map(s => String(s).toLowerCase().trim());
+    if (myIds.some(id => creatorIds.includes(id))) return true;
+    if (targetTask.assignedBy && currentUser?.name && targetTask.assignedBy.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) return true;
+
+    // 3. Assigned member (single or multi-assignee)
+    if (isTaskAssignedToMe(targetTask)) return true;
+
+    // 4. Active Worker / Currently Working on this task
+    // ("jo jis task pe kam kar sakta hai wo use pause complate sab kar sakta hai")
+    const activeWorkerIds = [
+      targetTask.activeWorkerId,
+      targetTask.activeUserId,
+      targetTask.activeWorkerCode,
+      targetTask.workerId,
+      targetTask.workerCode,
+      targetTask.startedById
+    ].filter(Boolean).map(s => String(s).toLowerCase().trim());
+    if (myIds.some(id => activeWorkerIds.includes(id))) return true;
+
+    const myName = (currentUser?.name || '').trim().toLowerCase();
+    const activeWorkerNames = [
+      targetTask.activeWorkerName,
+      targetTask.activeUserName,
+      targetTask.workerName,
+      targetTask.startedBy
+    ].filter(Boolean).map(s => String(s).trim().toLowerCase());
+    if (myName && activeWorkerNames.some(w => w === myName || w.includes(myName) || myName.includes(w))) {
+      return true;
+    }
+
+    // 5. Active Timer Snapshot check: If this task is in the user's active timer right now
+    const activeTimer = getActiveTimerSnapshot();
+    if (activeTimer && (String(activeTimer.taskId) === String(targetTask._id || targetTask.id) || (activeTimer.taskCode && targetTask.taskCode && String(activeTimer.taskCode).trim().toLowerCase() === String(targetTask.taskCode).trim().toLowerCase()))) {
+      return true;
+    }
+
+    // 6. Check worker timers map in multi-assignee task
+    const workerTimer = getWorkerTaskTimer(targetTask, currentUser);
+    if (workerTimer && (workerTimer.timerRunning || Number(workerTimer.accumulatedSeconds) > 0 || Number(workerTimer.todayWorkSeconds) > 0)) {
+      return true;
+    }
+
+    // 7. Team Leader / Delegation check
+    if (isLeaderOrAbove(currentUser)) return true;
+
+    return false;
+  }, [currentUser, userKey, isTaskAssignedToMe, getActiveTimerSnapshot]);
+
+  const isEventForMe = useCallback((e) => {
+    if (!e || !e.detail) return true;
+    const { userKey: evKey, employeeId: evId, employeeCode: evCode } = e.detail;
+    if (!evKey && !evId && !evCode) return true;
+    const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase().trim());
+    const evIds = [evKey, evId, evCode].filter(Boolean).map(s => String(s).toLowerCase().trim());
+    return myIds.some(id => evIds.includes(id));
+  }, [userKey, currentUser]);
 
   // Save active timer snapshot to storage strictly scoped to current user
   const saveActiveTimerSnapshot = useCallback((state) => {

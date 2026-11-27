@@ -166,6 +166,7 @@ export const getUserRole = (user) => {
   }
 
   // 4. HR classification
+  const deptStr = (user.department || '').toLowerCase().trim();
   if (
     roleStr === 'hr' ||
     roleStr === 'hr_manager' ||
@@ -173,6 +174,16 @@ export const getUserRole = (user) => {
     roleStr.includes('hr manager') ||
     roleStr.includes('people ops') ||
     roleStr.includes('hr operations') ||
+    roleStr.includes('hr specialist') ||
+    roleStr.includes('recruiter') ||
+    roleStr.includes('talent acquisition') ||
+    roleStr.startsWith('hr') ||
+    roleStr.includes(' hr') ||
+    roleStr.includes('hr ') ||
+    titleStr.includes('hr') ||
+    titleStr.includes('recruiter') ||
+    deptStr.includes('hr') ||
+    deptStr.includes('human resource') ||
     emailStr.startsWith('hr@')
   ) {
     return ROLES.HR;
@@ -213,6 +224,24 @@ export const isPrimaryAdmin = (user) => Boolean(
 
 // ── Composite Permission Checkers ──
 export const isHRorAdmin = (user) => {
+  if (!user) return false;
+  if (user.isAdmin || user.isSuperAdmin || user.isDelegatedAdmin) return true;
+  if (user.systemRole === 'admin' || user.systemRole === 'hr') return true;
+  const roleStr = String(user.role || user.designation || user.title || '').toLowerCase().trim();
+  const deptStr = String(user.department || '').toLowerCase().trim();
+  if (roleStr.includes('admin') || roleStr.includes('director') || roleStr.includes('administrator')) return true;
+  if (
+    roleStr.includes('human resource') ||
+    roleStr.includes('hr manager') ||
+    roleStr.includes('hr specialist') ||
+    roleStr.includes('recruiter') ||
+    roleStr.includes('talent') ||
+    roleStr.startsWith('hr') ||
+    roleStr.includes(' hr') ||
+    roleStr.includes('hr ') ||
+    deptStr.includes('hr') ||
+    deptStr.includes('human resource')
+  ) return true;
   const r = getUserRole(user);
   return r === ROLES.ADMIN || r === ROLES.HR;
 };
