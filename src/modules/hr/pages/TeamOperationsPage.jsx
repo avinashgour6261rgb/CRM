@@ -2488,10 +2488,15 @@ export const TeamOperationsPage = () => {
                                   <AlertTriangle size={12} />
                                   <span>Task Exceeds Shift (+{formatTimeDurationSafe(record.totalTaskSeconds - record.workSecs)})</span>
                                 </span>
+                              ) : record.untrackedSecs <= 60 ? (
+                                <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900/60 px-2 py-0.5 rounded">
+                                  <CheckCircle2 size={12} />
+                                  <span>Fully In-Sync (100%)</span>
+                                </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900/60 px-2 py-0.5 rounded">
                                   <CheckCircle2 size={12} />
-                                  <span>In-Sync ({formatTimeDurationSafe(record.untrackedSecs)} untracked buffer)</span>
+                                  <span>In-Sync ({formatTimeDurationSafe(record.untrackedSecs)} untasked buffer)</span>
                                 </span>
                               )}
                               <div className="text-[10px] text-slate-400">
